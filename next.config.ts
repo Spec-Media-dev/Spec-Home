@@ -15,6 +15,12 @@ const supabaseHost = (() => {
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  experimental: {
+    // Property images upload directly to Storage. This narrowly covers the
+    // remaining 1 MB avatar and 2 MB logo Server Action forms plus multipart
+    // overhead without allowing large request bodies application-wide.
+    serverActions: { bodySizeLimit: "2.25mb" },
+  },
   images: {
     remotePatterns: supabaseHost
       ? [

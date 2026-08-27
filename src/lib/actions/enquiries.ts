@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { updateDatasets } from "@/lib/cache/freshness";
 
 import { serverEnv } from "@/lib/env.server";
 import { pruneRateLimits, rateLimit } from "@/lib/rate-limit";
@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ENQUIRY_STATUSES, type EnquiryStatus } from "@/lib/supabase/types";
 import { enquirySchema } from "@/lib/validations/enquiry";
+import { isUuid } from "@/lib/validations/id";
 
 export type EnquiryActionResult =
   | { ok: true }
@@ -17,6 +18,18 @@ export type EnquiryActionResult =
       ok: false;
       error: "validation" | "rateLimited" | "verification" | "generic";
     };
+
+/**
+ * Enquiries are lead data. The dataset maps to no cache tags — admin reads are
+ * uncached by design — and it is never announced on the public channel, so the
+ * only effect here is dropping the admin paths and notifying signed-in admins
+ * that their inbox moved on. No part of the enquiry itself is transmitted.
+ */
+async function refreshEnquiries(extraPaths: string[] = []) {
+  await updateDatasets(["enquiries"], {
+    paths: ["/dashboard-admin/enquiries", "/dashboard-admin", ...extraPaths],
+  });
+}
 
 async function clientIp(): Promise<string> {
   const headerList = await headers();
@@ -124,7 +137,7 @@ export async function submitEnquiry(raw: unknown): Promise<EnquiryActionResult> 
     return { ok: false, error: "generic" };
   }
 
-  revalidatePath("/dashboard-admin/enquiries");
+  await refreshEnquiries();
   return { ok: true };
 }
 
@@ -143,7 +156,7 @@ export async function updateEnquiryStatus(
     return { ok: false, error: "unauthorized" };
   }
 
-  if (!ENQUIRY_STATUSES.includes(status as EnquiryStatus)) {
+  if (!isUuid(id) || !ENQUIRY_STATUSES.includes(status as EnquiryStatus)) {
     return { ok: false, error: "validation" };
   }
 
@@ -158,8 +171,7 @@ export async function updateEnquiryStatus(
     return { ok: false, error: "generic" };
   }
 
-  revalidatePath("/dashboard-admin/enquiries");
-  revalidatePath(`/dashboard-admin/enquiries/${id}`);
+  await refreshEnquiries([`/dashboard-admin/enquiries/${id}`]);
   return { ok: true };
 }
 
@@ -169,6 +181,7 @@ export async function deleteEnquiry(id: string): Promise<AdminEnquiryResult> {
   } catch {
     return { ok: false, error: "unauthorized" };
   }
+  if (!isUuid(id)) return { ok: false, error: "validation" };
 
   const supabase = await createClient();
   const { error } = await supabase.from("enquiries").delete().eq("id", id);
@@ -178,6 +191,6 @@ export async function deleteEnquiry(id: string): Promise<AdminEnquiryResult> {
     return { ok: false, error: "generic" };
   }
 
-  revalidatePath("/dashboard-admin/enquiries");
+  await refreshEnquiries();
   return { ok: true };
 }

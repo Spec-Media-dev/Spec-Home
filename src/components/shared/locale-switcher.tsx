@@ -1,43 +1,69 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useParams } from "next/navigation";
-import { useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-import { Button } from "@/components/ui/button";
-import { usePathname, useRouter } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
+import { usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+
+function LocaleSwitcherLink({
+  localizedPath,
+  target,
+  label,
+}: {
+  localizedPath: string;
+  target: Locale;
+  label: string;
+}) {
+  const searchParams = useSearchParams();
+  const query = searchParams.toString();
+  const href = query ? `${localizedPath}?${query}` : localizedPath;
+
+  return (
+    <a
+      href={href}
+      lang={target}
+      aria-label={label}
+      className={buttonVariants({ variant: "ghost", size: "sm" })}
+    >
+      {target === "ar" ? "العربية" : "English"}
+    </a>
+  );
+}
 
 export function LocaleSwitcher() {
   const t = useTranslations("common");
   const locale = useLocale() as Locale;
-  const router = useRouter();
   const pathname = usePathname();
-  const params = useParams();
-  const [pending, startTransition] = useTransition();
 
   const target: Locale = locale === "ar" ? "en" : "ar";
+  const localizedPath =
+    target === "ar"
+      ? pathname === "/"
+        ? "/ar"
+        : `/ar${pathname}`
+      : pathname;
 
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      disabled={pending}
-      aria-label={t("switchLanguage")}
-      onClick={() =>
-        startTransition(() => {
-          // `params` carries dynamic segments (e.g. slug) that the localized
-          // pathname still needs when switching language.
-          router.replace(
-            // @ts-expect-error -- pathname is validated by the router at runtime
-            { pathname, params },
-            { locale: target },
-          );
-        })
+    // A locale change replaces the root document (`lang`, `dir`, and the
+    // next-themes bootstrap), so this intentionally remains a hard link.
+    <Suspense
+      fallback={
+        <span
+          aria-hidden
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+        >
+          {target === "ar" ? "العربية" : "English"}
+        </span>
       }
     >
-      {target === "ar" ? "العربية" : "English"}
-    </Button>
+      <LocaleSwitcherLink
+        localizedPath={localizedPath}
+        target={target}
+        label={t("switchLanguage")}
+      />
+    </Suspense>
   );
 }

@@ -37,6 +37,7 @@ export async function MobileContactBar() {
           size="icon"
           className="size-12"
           aria-label={t("whatsapp")}
+          nativeButton={false}
           render={
             <a
               href={contact.whatsappHref}

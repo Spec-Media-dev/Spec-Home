@@ -1,30 +1,33 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { Field } from "@/components/admin/field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signIn } from "@/lib/actions/auth";
 
 const schema = z.object({
-  email: z.email("Enter a valid email address."),
-  password: z.string().min(1, "Enter your password."),
+  email: z.email(),
+  password: z.string().min(1),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-const MESSAGES = {
-  invalid: "Incorrect email or password.",
-  notAdmin: "This account does not have admin access.",
-  rateLimited: "Too many attempts. Try again in a few minutes.",
+const ERROR_KEYS = {
+  invalid: "errorInvalid",
+  notAdmin: "errorNotAdmin",
+  rateLimited: "errorRateLimited",
 } as const;
 
 export function LoginForm() {
+  const t = useTranslations("login");
   const router = useRouter();
   const {
     register,
@@ -44,46 +47,45 @@ export function LoginForm() {
       return;
     }
 
-    toast.error(MESSAGES[result.error]);
+    toast.error(t(ERROR_KEYS[result.error]));
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
-      <div className="grid gap-2">
-        <Label htmlFor="email">Email</Label>
+      <Field
+        id="email"
+        label={t("email")}
+        error={errors.email ? t("emailInvalid") : undefined}
+      >
         <Input
           id="email"
           type="email"
+          inputMode="email"
           autoComplete="email"
+          spellCheck={false}
           autoFocus
-          aria-invalid={Boolean(errors.email)}
+          // Addresses are always Latin, whatever the console language.
+          dir="ltr"
+          className="text-start"
           {...register("email")}
         />
-        {errors.email ? (
-          <p role="alert" className="text-sm text-destructive">
-            {errors.email.message}
-          </p>
-        ) : null}
-      </div>
+      </Field>
 
-      <div className="grid gap-2">
-        <Label htmlFor="password">Password</Label>
-        <Input
+      <Field
+        id="password"
+        label={t("password")}
+        error={errors.password ? t("passwordRequired") : undefined}
+      >
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="current-password"
-          aria-invalid={Boolean(errors.password)}
+          dir="ltr"
           {...register("password")}
         />
-        {errors.password ? (
-          <p role="alert" className="text-sm text-destructive">
-            {errors.password.message}
-          </p>
-        ) : null}
-      </div>
+      </Field>
 
       <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? "Signing in…" : "Sign in"}
+        {isSubmitting ? t("submitting") : t("submit")}
       </Button>
     </form>
   );

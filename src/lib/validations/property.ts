@@ -2,33 +2,31 @@ import { z } from "zod";
 
 import { PROPERTY_STATUSES } from "@/lib/supabase/types";
 
-const optionalText = z
-  .string()
-  .trim()
-  .max(6000)
-  .optional()
-  .or(z.literal(""))
-  .transform((value) => (value ? value : null));
+/** Same null-tolerance as the project schema — see the note there. */
+const optionalText = z.preprocess(
+  (value) => (value === null || value === undefined ? "" : value),
+  z
+    .string()
+    .trim()
+    .max(6000)
+    .transform((value) => (value === "" ? null : value)),
+);
 
-const optionalNumber = z
-  .union([z.number(), z.string()])
-  .optional()
-  .transform((value) => {
-    if (value === undefined || value === "" || value === null) return null;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-  });
+const blankToNull = (value: unknown) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  return typeof value === "string" ? Number(value) : value;
+};
 
-const optionalInt = z
-  .union([z.number(), z.string()])
-  .optional()
-  .transform((value) => {
-    if (value === undefined || value === "" || value === null) return null;
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 0 && parsed <= 50
-      ? parsed
-      : null;
-  });
+const optionalNumber = z.preprocess(
+  blankToNull,
+  z.number().finite().nonnegative().nullable(),
+);
+
+const optionalInt = z.preprocess(
+  blankToNull,
+  z.number().int().min(0).max(50).nullable(),
+);
 
 /** `project_id` is required by the schema and re-verified server-side. */
 export const propertySchema = z.object({
@@ -43,7 +41,7 @@ export const propertySchema = z.object({
   currency: z
     .string()
     .trim()
-    .length(3)
+    .regex(/^[a-z]{3}$/i)
     .transform((value) => value.toUpperCase())
     .default("AED"),
   bedrooms: optionalInt,
@@ -69,3 +67,27 @@ export const specsPayloadSchema = z.object({
 });
 
 export type SpecInput = z.infer<typeof specSchema>;
+
+/** Focus order for the property form, matching its visual section order. */
+export const PROPERTY_FIELD_ORDER = [
+  "project_id",
+  "title_en",
+  "title_ar",
+  "property_type_en",
+  "property_type_ar",
+  "description_en",
+  "description_ar",
+  "price",
+  "currency",
+  "status",
+  "bedrooms",
+  "bathrooms",
+  "size_sqft",
+  "is_featured",
+  "is_published",
+] as const;
+
+/** Fields authored in Arabic, so the form can open the right bilingual tab. */
+export const PROPERTY_ARABIC_FIELDS = new Set(
+  PROPERTY_FIELD_ORDER.filter((field) => field.endsWith("_ar")),
+);

@@ -1,15 +1,18 @@
 import { AdminPageTitle } from "@/components/admin/page-title";
 import { ProjectForm } from "@/components/admin/project-form";
+import { getAdminTranslations } from "@/lib/admin-i18n";
 
-export const metadata = { title: "New project" };
+export async function generateMetadata() {
+  const t = await getAdminTranslations("projects");
+  return { title: t("newMetaTitle") };
+}
 
-export default function NewProjectPage() {
+export default async function NewProjectPage() {
+  const t = await getAdminTranslations("projects");
+
   return (
     <div className="space-y-6">
-      <AdminPageTitle
-        title="New project"
-        description="The URL slug is generated from the English name."
-      />
+      <AdminPageTitle title={t("new")} description={t("newDescription")} />
       <ProjectForm />
     </div>
   );

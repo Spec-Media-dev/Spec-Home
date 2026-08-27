@@ -10,36 +10,48 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ADMIN_INTL_LOCALE,
+  getAdminLocale,
+  getAdminTranslations,
+} from "@/lib/admin-i18n";
 import { getAdminEnquiries } from "@/lib/data/admin";
 import { ENQUIRY_STATUSES } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Lead Inbox" };
-
-const FILTERS: { value?: string; label: string }[] = [
-  { label: "All" },
-  ...ENQUIRY_STATUSES.map((value) => ({
-    value,
-    label: value.charAt(0).toUpperCase() + value.slice(1),
-  })),
-];
+export async function generateMetadata() {
+  const t = await getAdminTranslations("enquiries");
+  return { title: t("metaTitle") };
+}
 
 export default async function AdminEnquiriesPage({
   searchParams,
 }: PageProps<"/dashboard-admin/enquiries">) {
   const query = await searchParams;
   const status = Array.isArray(query.status) ? query.status[0] : query.status;
-  const enquiries = await getAdminEnquiries(status);
+
+  const [t, common, statusLabel, locale, enquiries] = await Promise.all([
+    getAdminTranslations("enquiries"),
+    getAdminTranslations("common"),
+    getAdminTranslations("enquiryStatus"),
+    getAdminLocale(),
+    getAdminEnquiries(status),
+  ]);
+
+  const filters: { value?: string; label: string }[] = [
+    { label: common("all") },
+    ...ENQUIRY_STATUSES.map((value) => ({ value, label: statusLabel(value) })),
+  ];
 
   return (
     <div className="space-y-6">
       <AdminPageTitle
-        title="Lead Inbox"
-        description="Enquiries submitted from the public site."
+        title={t("title")}
+        description={t("description")}
       />
 
-      <nav className="flex flex-wrap gap-2" aria-label="Filter by status">
-        {FILTERS.map((filter) => (
+      <nav className="flex flex-wrap gap-2" aria-label={t("filterLabel")}>
+        {filters.map((filter) => (
           <Link
             key={filter.label}
             href={
@@ -62,9 +74,9 @@ export default async function AdminEnquiriesPage({
 
       {enquiries.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <p className="font-medium">No enquiries</p>
+          <p className="font-medium">{t("emptyTitle")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            New enquiries from the public site appear here.
+            {t("emptyBody")}
           </p>
         </div>
       ) : (
@@ -72,12 +84,12 @@ export default async function AdminEnquiriesPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Related to</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Received</TableHead>
+                <TableHead>{t("columnName")}</TableHead>
+                <TableHead>{t("columnEmail")}</TableHead>
+                <TableHead>{t("columnPhone")}</TableHead>
+                <TableHead>{t("columnRelated")}</TableHead>
+                <TableHead>{t("columnStatus")}</TableHead>
+                <TableHead>{t("columnReceived")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -91,26 +103,35 @@ export default async function AdminEnquiriesPage({
                       {enquiry.name}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell
+                    dir="ltr"
+                    className="text-start text-sm text-muted-foreground"
+                  >
                     {enquiry.email}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {enquiry.phone ?? "—"}
+                  <TableCell
+                    dir="ltr"
+                    className="text-start text-sm text-muted-foreground"
+                  >
+                    {enquiry.phone ?? common("none")}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {enquiry.properties?.title_en ??
                       enquiry.projects?.name_en ??
-                      "General"}
+                      t("general")}
                   </TableCell>
                   <TableCell>
                     <StatusChip status={enquiry.status} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(enquiry.created_at).toLocaleDateString("en-AE", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {new Date(enquiry.created_at).toLocaleDateString(
+                      ADMIN_INTL_LOCALE[locale],
+                      {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      },
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

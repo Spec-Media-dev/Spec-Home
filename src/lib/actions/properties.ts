@@ -1,23 +1,30 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
-
-import { cacheTags } from "@/lib/cache-tags";
-import { logAndMap, type ActionResult } from "@/lib/errors";
+import { updateDatasets } from "@/lib/cache/freshness";
+import { logAndMap, validationFailure, type ActionResult } from "@/lib/errors";
 import { pingIndexNow } from "@/lib/seo/indexnow";
 import { generateReferenceCode, propertySlug } from "@/lib/slug";
 import { storagePathFromUrl } from "@/lib/storage";
 import { requireAdminAction } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { STORAGE_BUCKET } from "@/lib/supabase/types";
+import { toFieldErrors } from "@/lib/validations/field-errors";
 import { propertySchema } from "@/lib/validations/property";
+import { isUuid } from "@/lib/validations/id";
 
-function revalidateProperties(slug?: string) {
-  revalidateTag(cacheTags.properties, "max");
-  revalidateTag(cacheTags.projects, "max"); // project cards show published counts
-  revalidatePath("/dashboard-admin/properties");
-  revalidatePath("/dashboard-admin");
-  if (slug) revalidatePath(`/properties/${slug}`);
+/**
+ * Touches the projects dataset as well: project cards advertise a published
+ * unit count, so a property change moves a number on the projects listing.
+ */
+async function refreshProperties(slug?: string, extraPaths: string[] = []) {
+  await updateDatasets(["properties", "projects"], {
+    paths: [
+      "/dashboard-admin/properties",
+      "/dashboard-admin",
+      ...(slug ? [`/properties/${slug}`] : []),
+      ...extraPaths,
+    ],
+  });
 }
 
 async function uniqueReferenceCode(): Promise<string> {
@@ -70,7 +77,7 @@ export async function createProperty(
   }
 
   const parsed = propertySchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: "validation" };
+  if (!parsed.success) return validationFailure(toFieldErrors(parsed.error.issues));
 
   const input = parsed.data;
   const supabase = await createClient();
@@ -101,7 +108,7 @@ export async function createProperty(
     return { ok: false, error: logAndMap("createProperty", error, "property") };
   }
 
-  revalidateProperties(data.slug);
+  await refreshProperties(data.slug);
   return { ok: true, data: { id: data.id } };
 }
 
@@ -114,9 +121,10 @@ export async function updateProperty(
   } catch {
     return { ok: false, error: "unauthorized" };
   }
+  if (!isUuid(id)) return { ok: false, error: "validation" };
 
   const parsed = propertySchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: "validation" };
+  if (!parsed.success) return validationFailure(toFieldErrors(parsed.error.issues));
 
   const input = parsed.data;
   const supabase = await createClient();
@@ -155,8 +163,7 @@ export async function updateProperty(
     return { ok: false, error: logAndMap("updateProperty", error, "property") };
   }
 
-  revalidateProperties(slug);
-  revalidatePath(`/dashboard-admin/properties/${id}`);
+  await refreshProperties(slug, [`/dashboard-admin/properties/${id}`]);
   return { ok: true };
 }
 
@@ -168,6 +175,9 @@ export async function setPropertyPublished(
     await requireAdminAction();
   } catch {
     return { ok: false, error: "unauthorized" };
+  }
+  if (!isUuid(id) || typeof published !== "boolean") {
+    return { ok: false, error: "validation" };
   }
 
   // Publishing without imagery would produce an empty listing card.
@@ -190,7 +200,7 @@ export async function setPropertyPublished(
     };
   }
 
-  revalidateProperties(data.slug);
+  await refreshProperties(data.slug);
   await pingIndexNow([`/properties/${data.slug}`, "/properties"]);
   return { ok: true };
 }
@@ -203,6 +213,9 @@ export async function setPropertyFeatured(
     await requireAdminAction();
   } catch {
     return { ok: false, error: "unauthorized" };
+  }
+  if (!isUuid(id) || typeof featured !== "boolean") {
+    return { ok: false, error: "validation" };
   }
 
   const supabase = await createClient();
@@ -218,14 +231,14 @@ export async function setPropertyFeatured(
     };
   }
 
-  revalidateProperties();
+  await refreshProperties();
   return { ok: true };
 }
 
 /**
- * Storage objects are removed before the row, because deleting the row cascades
- * `property_images` away and would leave the files orphaned with no reference
- * back to them.
+ * Paths are captured before deleting the row, then objects are removed only
+ * after the database delete succeeds. A failed delete can therefore never
+ * leave surviving rows that point at missing images.
  */
 export async function deleteProperty(id: string): Promise<ActionResult> {
   try {
@@ -233,6 +246,7 @@ export async function deleteProperty(id: string): Promise<ActionResult> {
   } catch {
     return { ok: false, error: "unauthorized" };
   }
+  if (!isUuid(id)) return { ok: false, error: "validation" };
 
   const supabase = await createClient();
 
@@ -245,20 +259,19 @@ export async function deleteProperty(id: string): Promise<ActionResult> {
     .map((image) => storagePathFromUrl(image.image_url))
     .filter((path): path is string => Boolean(path));
 
-  if (paths.length > 0) {
-    const { error: storageError } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .remove(paths);
-    // A storage failure should not block the delete; log and continue.
-    if (storageError) console.error("[deleteProperty] storage", storageError);
-  }
-
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {
     return { ok: false, error: logAndMap("deleteProperty", error, "property") };
   }
 
-  revalidateProperties();
+  if (paths.length > 0) {
+    const { error: storageError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .remove(paths);
+    if (storageError) console.error("[deleteProperty] storage", storageError);
+  }
+
+  await refreshProperties();
   return { ok: true };
 }

@@ -8,6 +8,19 @@ function numberLocale(locale: Locale) {
   return locale === "ar" ? "ar-AE-u-nu-latn" : "en-AE";
 }
 
+/**
+ * Currency always leads the amount, in both languages.
+ *
+ * `Intl.NumberFormat`'s own `style: "currency"` follows each locale's CLDR
+ * convention, which puts the symbol *after* the number in Arabic ("100,000
+ * د.إ.") but *before* it in English ("AED 100,000") — same price, opposite
+ * layout depending on language. Read on its own that is arguably correct
+ * Arabic typography, but next to the English version on the same site it
+ * reads as the number having been reversed. `formatToParts` gets the
+ * properly localized currency symbol and grouped digits, then this
+ * reassembles them in one fixed order so the price looks the same shape in
+ * both locales.
+ */
 export function formatPrice(
   value: number | null | undefined,
   currency: string,
@@ -15,11 +28,19 @@ export function formatPrice(
 ): string | null {
   if (value === null || value === undefined) return null;
 
-  return new Intl.NumberFormat(numberLocale(locale), {
+  const parts = new Intl.NumberFormat(numberLocale(locale), {
     style: "currency",
     currency: currency || "AED",
     maximumFractionDigits: 0,
-  }).format(value);
+  }).formatToParts(value);
+
+  const currencyPart = parts.find((part) => part.type === "currency")?.value;
+  const amount = parts
+    .filter((part) => part.type !== "currency" && part.type !== "literal")
+    .map((part) => part.value)
+    .join("");
+
+  return currencyPart ? `${currencyPart} ${amount}` : amount;
 }
 
 export function formatPriceRange(

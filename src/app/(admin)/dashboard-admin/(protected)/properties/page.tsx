@@ -13,23 +13,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ADMIN_INTL_LOCALE, getAdminLocale, getAdminTranslations } from "@/lib/admin-i18n";
 import { getAdminProperties } from "@/lib/data/admin";
+import { MAX_PROPERTY_IMAGES } from "@/lib/supabase/types";
 
-export const metadata = { title: "Properties" };
+export async function generateMetadata() {
+  const t = await getAdminTranslations("properties");
+  return { title: t("metaTitle") };
+}
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function formatPrice(price: number | null, currency: string) {
-  if (price === null) return "On request";
-  return `${currency} ${price.toLocaleString("en-AE")}`;
+function formatPrice(
+  price: number | null,
+  currency: string,
+  intlLocale: string,
+  onRequest: string,
+) {
+  if (price === null) return onRequest;
+  return `${currency} ${price.toLocaleString(intlLocale)}`;
 }
 
 export default async function AdminPropertiesPage({
   searchParams,
 }: PageProps<"/dashboard-admin/properties">) {
   const query = await searchParams;
+  const [t, common, locale] = await Promise.all([
+    getAdminTranslations("properties"),
+    getAdminTranslations("common"),
+    getAdminLocale(),
+  ]);
+  const intlLocale = ADMIN_INTL_LOCALE[locale];
   const properties = await getAdminProperties({
     projectId: first(query.project),
     status: first(query.status),
@@ -39,23 +55,23 @@ export default async function AdminPropertiesPage({
   return (
     <div className="space-y-6">
       <AdminPageTitle
-        title="Properties"
-        description="Inventory across every project."
+        title={t("title")}
+        description={t("description")}
         actions={
           <Button
             nativeButton={false}
             render={<Link href="/dashboard-admin/properties/new" />}
           >
-            New property
+            {t("new")}
           </Button>
         }
       />
 
       {properties.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <p className="font-medium">No properties found</p>
+          <p className="font-medium">{t("emptyTitle")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create a property, or clear the current filters.
+            {t("emptyBody")}
           </p>
         </div>
       ) : (
@@ -63,12 +79,12 @@ export default async function AdminPropertiesPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Property</TableHead>
-                <TableHead>Reference</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Visibility</TableHead>
+                <TableHead>{t("columnProperty")}</TableHead>
+                <TableHead>{t("columnReference")}</TableHead>
+                <TableHead>{t("columnProject")}</TableHead>
+                <TableHead>{t("columnPrice")}</TableHead>
+                <TableHead>{t("columnStatus")}</TableHead>
+                <TableHead>{t("columnVisibility")}</TableHead>
                 <TableHead className="w-px" />
               </TableRow>
             </TableHeader>
@@ -83,17 +99,25 @@ export default async function AdminPropertiesPage({
                       {property.title_en}
                     </Link>
                     <span className="block text-xs text-muted-foreground">
-                      {property.property_images.length} of 4 images
+                      {t("imageCount", {
+                        count: property.property_images.length,
+                        max: MAX_PROPERTY_IMAGES,
+                      })}
                     </span>
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {property.reference_code}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {property.projects?.name_en ?? "—"}
+                    {property.projects?.name_en ?? common("none")}
                   </TableCell>
                   <TableCell className="text-sm tabular-nums">
-                    {formatPrice(property.price, property.currency)}
+                    {formatPrice(
+                      property.price,
+                      property.currency,
+                      intlLocale,
+                      common("onRequest"),
+                    )}
                   </TableCell>
                   <TableCell>
                     <StatusChip status={property.status} />
@@ -103,11 +127,13 @@ export default async function AdminPropertiesPage({
                       <Badge
                         variant={property.is_published ? "default" : "outline"}
                       >
-                        {property.is_published ? "Published" : "Draft"}
+                        {property.is_published
+                          ? common("published")
+                          : common("draft")}
                       </Badge>
                       {property.is_featured ? (
                         <Badge className="bg-brand-gold text-brand-charcoal hover:bg-brand-gold">
-                          Featured
+                          {common("featured")}
                         </Badge>
                       ) : null}
                     </span>

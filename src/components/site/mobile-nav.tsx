@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,11 @@ import { Link } from "@/i18n/navigation";
 
 type MobileNavProps = {
   links: { href: string; label: string }[];
+  /** Admin-uploaded logo, so the drawer matches the header it opened from. */
+  logoUrl: string | null;
 };
 
-export function MobileNav({ links }: MobileNavProps) {
+export function MobileNav({ links, logoUrl }: MobileNavProps) {
   const t = useTranslations("common");
   const locale = useLocale();
   const [open, setOpen] = useState(false);
@@ -45,7 +48,10 @@ export function MobileNav({ links }: MobileNavProps) {
       />
       <SheetContent side={side} className="w-[min(20rem,85vw)]">
         <SheetHeader>
-          <SheetTitle>{t("openMenu")}</SheetTitle>
+          <SheetTitle className="sr-only">{t("openMenu")}</SheetTitle>
+          <div className="flex justify-start px-1">
+            <BrandLogo logoUrl={logoUrl} />
+          </div>
         </SheetHeader>
         <nav className="mt-2 flex flex-col gap-1 px-4">
           {links.map((link) => (

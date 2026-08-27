@@ -1,6 +1,7 @@
 "use client";
 
 import { MoreHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -31,6 +32,8 @@ export function PropertyRowActions({
   isPublished: boolean;
   isFeatured: boolean;
 }) {
+  const t = useTranslations("properties");
+  const common = useTranslations("common");
   const { run, pending } = useAdminAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -42,7 +45,7 @@ export function PropertyRowActions({
             <Button
               variant="ghost"
               size="icon"
-              aria-label={`Actions for ${title}`}
+              aria-label={common("actionsFor", { name: title })}
             >
               <MoreHorizontal className="size-4" aria-hidden />
             </Button>
@@ -52,17 +55,17 @@ export function PropertyRowActions({
           <DropdownMenuItem
             render={<Link href={`/dashboard-admin/properties/${id}/edit`} />}
           >
-            Edit details
+            {t("editDetails")}
           </DropdownMenuItem>
           <DropdownMenuItem
             render={<Link href={`/dashboard-admin/properties/${id}/images`} />}
           >
-            Manage images
+            {t("manageImages")}
           </DropdownMenuItem>
           <DropdownMenuItem
             render={<Link href={`/dashboard-admin/properties/${id}/specs`} />}
           >
-            Manage specifications
+            {t("manageSpecs")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -70,22 +73,22 @@ export function PropertyRowActions({
             onClick={() =>
               run(
                 () => setPropertyPublished(id, !isPublished),
-                isPublished ? "Property unpublished." : "Property published.",
+                isPublished ? t("unpublishedToast") : t("publishedToast"),
               )
             }
           >
-            {isPublished ? "Unpublish" : "Publish"}
+            {isPublished ? common("unpublish") : common("publish")}
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={pending}
             onClick={() =>
               run(
                 () => setPropertyFeatured(id, !isFeatured),
-                isFeatured ? "Removed from featured." : "Marked as featured.",
+                isFeatured ? t("unfeaturedToast") : t("featuredToast"),
               )
             }
           >
-            {isFeatured ? "Unfeature" : "Feature"}
+            {isFeatured ? common("unfeature") : common("feature")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -93,7 +96,7 @@ export function PropertyRowActions({
             disabled={pending}
             onClick={() => setConfirmOpen(true)}
           >
-            Delete
+            {common("delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -101,13 +104,13 @@ export function PropertyRowActions({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete ${title}?`}
-        description="The property and its images are permanently removed."
-        confirmLabel="Delete property"
+        title={t("deleteTitle", { name: title })}
+        description={t("deleteBody")}
+        confirmLabel={t("deleteConfirm")}
         pending={pending}
         onConfirm={() => {
           setConfirmOpen(false);
-          run(() => deleteProperty(id), "Property deleted.");
+          run(() => deleteProperty(id), t("deletedToast"));
         }}
       />
     </>

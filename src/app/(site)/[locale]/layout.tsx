@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 import { Analytics } from "@/components/analytics";
+import { ContentRefreshBridge } from "@/components/site/content-refresh-bridge";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { ThemeProvider } from "@/components/shared/theme-provider";
@@ -74,6 +75,12 @@ export default async function SiteLayout({
             </main>
             <SiteFooter />
             <Toaster />
+            {/*
+             * One subscription for the whole public site. Refresh hints carry
+             * no data — they only prompt a re-fetch of RSC data the visitor
+             * could already read.
+             */}
+            <ContentRefreshBridge />
           </NextIntlClientProvider>
         </ThemeProvider>
         <Analytics />

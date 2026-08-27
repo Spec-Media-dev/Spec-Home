@@ -1,5 +1,7 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 
+import type { FieldErrorMap } from "@/lib/validations/field-errors";
+
 /**
  * Stable, translatable outcome codes. Raw PostgreSQL, Supabase, or RLS text
  * never reaches the UI — it is logged server-side and mapped to one of these.
@@ -14,13 +16,28 @@ export type ActionErrorCode =
   | "projectHasProperties"
   | "imageLimit"
   | "imageRequired"
+  | "coverRequired"
   | "invalidFile"
+  | "fileTooLarge"
   | "uploadFailed"
   | "generic";
 
+/**
+ * `fieldErrors` is present only for *expected* validation failures, and only
+ * ever contains codes from the safe vocabulary in `validations/field-errors`.
+ * Unexpected failures deliberately carry no field detail — there is nothing an
+ * administrator could usefully do with the shape of a database error.
+ */
 export type ActionResult<T = undefined> =
   | ({ ok: true } & (T extends undefined ? { data?: never } : { data: T }))
-  | { ok: false; error: ActionErrorCode };
+  | { ok: false; error: ActionErrorCode; fieldErrors?: FieldErrorMap };
+
+/** Builds the standard "check the highlighted fields" failure. */
+export function validationFailure(
+  fieldErrors: FieldErrorMap,
+): { ok: false; error: ActionErrorCode; fieldErrors: FieldErrorMap } {
+  return { ok: false, error: "validation", fieldErrors };
+}
 
 const UNIQUE_VIOLATION = "23505";
 const FOREIGN_KEY_VIOLATION = "23503";

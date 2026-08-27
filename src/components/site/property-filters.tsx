@@ -1,9 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Locale } from "@/i18n/routing";
+import {
+  propertyFilterQuery,
+  toPropertyFilterState,
+  type PropertyFilterState,
+} from "@/lib/property-filter-state";
 
 export type FilterOption = { value: string; label: string };
 
@@ -33,7 +38,6 @@ type PropertyFiltersProps = {
   };
 };
 
-const ANY = "__any";
 const BEDROOM_CHOICES = ["0", "1", "2", "3", "4", "5"];
 const STATUS_CHOICES = ["available", "reserved", "sold"];
 
@@ -54,37 +58,77 @@ export function PropertyFilters({
   const locale = useLocale() as Locale;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [draft, setDraft] = useState<PropertyFilterState>(() =>
+    toPropertyFilterState(current),
+  );
 
   const hasFilters = Object.values(current).some(Boolean);
+  const hasDraftFilters = Object.values(draft).some(
+    (value) => value !== "" && value !== null,
+  );
+  const projectItems = [
+    { value: null, label: t("allProjects") },
+    ...projects,
+  ];
+  const typeItems = [
+    { value: null, label: t("allPropertyTypes") },
+    ...types,
+  ];
+  const bedroomItems = [
+    { value: null, label: t("anyBedrooms") },
+    ...BEDROOM_CHOICES.map((value) => ({
+      value,
+      label: new Intl.NumberFormat(
+        locale === "ar" ? "ar-AE-u-nu-latn" : "en-AE",
+      ).format(Number(value)),
+    })),
+  ];
+  const statusItems = [
+    { value: null, label: t("allStatuses") },
+    ...STATUS_CHOICES.map((value) => ({ value, label: statusT(value) })),
+  ];
 
-  function apply(next: Partial<PropertyFiltersProps["current"]>) {
-    const merged = { ...current, ...next };
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(merged)) {
-      if (value) params.set(key, value);
-    }
-    const query = params.toString();
+  function apply() {
+    const query = propertyFilterQuery(draft);
     startTransition(() => {
       router.push(query ? `${basePath}?${query}` : basePath, { scroll: false });
     });
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-brand-navy/5 sm:p-6 dark:ring-white/5">
+      <div className="mb-6 flex items-start gap-3 border-b border-border pb-5">
+        <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-gold/15 text-brand-navy dark:text-brand-gold">
+          <SlidersHorizontal className="size-4" aria-hidden />
+        </span>
+        <div>
+          <h2 className="font-semibold text-brand-navy dark:text-foreground">
+            {t("filtersTitle")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("filtersHint")}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor="filter-project">{t("filterProject")}</Label>
           <Select
-            value={current.project ?? ANY}
+            items={projectItems}
+            value={draft.project}
             onValueChange={(value) =>
-              apply({ project: value === ANY ? undefined : String(value) })
+              setDraft((previous) => ({
+                ...previous,
+                project: value === null ? null : String(value),
+              }))
             }
           >
-            <SelectTrigger id="filter-project">
-              <SelectValue placeholder={t("filterAny")} />
+            <SelectTrigger id="filter-project" className="h-11 w-full">
+              <SelectValue placeholder={t("allProjects")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANY}>{t("filterAny")}</SelectItem>
+              <SelectItem value={null}>{t("allProjects")}</SelectItem>
               {projects.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
@@ -97,16 +141,20 @@ export function PropertyFilters({
         <div className="space-y-1.5">
           <Label htmlFor="filter-type">{t("filterType")}</Label>
           <Select
-            value={current.type ?? ANY}
+            items={typeItems}
+            value={draft.type}
             onValueChange={(value) =>
-              apply({ type: value === ANY ? undefined : String(value) })
+              setDraft((previous) => ({
+                ...previous,
+                type: value === null ? null : String(value),
+              }))
             }
           >
-            <SelectTrigger id="filter-type">
-              <SelectValue placeholder={t("filterAny")} />
+            <SelectTrigger id="filter-type" className="h-11 w-full">
+              <SelectValue placeholder={t("allPropertyTypes")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANY}>{t("filterAny")}</SelectItem>
+              <SelectItem value={null}>{t("allPropertyTypes")}</SelectItem>
               {types.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
@@ -119,21 +167,23 @@ export function PropertyFilters({
         <div className="space-y-1.5">
           <Label htmlFor="filter-beds">{t("filterBedrooms")}</Label>
           <Select
-            value={current.beds ?? ANY}
+            items={bedroomItems}
+            value={draft.beds}
             onValueChange={(value) =>
-              apply({ beds: value === ANY ? undefined : String(value) })
+              setDraft((previous) => ({
+                ...previous,
+                beds: value === null ? null : String(value),
+              }))
             }
           >
-            <SelectTrigger id="filter-beds">
-              <SelectValue placeholder={t("filterAny")} />
+            <SelectTrigger id="filter-beds" className="h-11 w-full">
+              <SelectValue placeholder={t("anyBedrooms")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANY}>{t("filterAny")}</SelectItem>
-              {BEDROOM_CHOICES.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {new Intl.NumberFormat(
-                    locale === "ar" ? "ar-AE-u-nu-latn" : "en-AE",
-                  ).format(Number(value))}
+              <SelectItem value={null}>{t("anyBedrooms")}</SelectItem>
+              {bedroomItems.slice(1).map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -143,16 +193,20 @@ export function PropertyFilters({
         <div className="space-y-1.5">
           <Label htmlFor="filter-status">{t("filterStatus")}</Label>
           <Select
-            value={current.status ?? ANY}
+            items={statusItems}
+            value={draft.status}
             onValueChange={(value) =>
-              apply({ status: value === ANY ? undefined : String(value) })
+              setDraft((previous) => ({
+                ...previous,
+                status: value === null ? null : String(value),
+              }))
             }
           >
-            <SelectTrigger id="filter-status">
-              <SelectValue placeholder={t("filterAny")} />
+            <SelectTrigger id="filter-status" className="h-11 w-full">
+              <SelectValue placeholder={t("allStatuses")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANY}>{t("filterAny")}</SelectItem>
+              <SelectItem value={null}>{t("allStatuses")}</SelectItem>
               {STATUS_CHOICES.map((value) => (
                 <SelectItem key={value} value={value}>
                   {statusT(value)}
@@ -164,17 +218,13 @@ export function PropertyFilters({
       </div>
 
       <form
-        className="mt-4 flex flex-wrap items-end gap-3"
+        className="mt-6 grid items-end gap-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-[minmax(0,11rem)_minmax(0,11rem)_auto_auto]"
         onSubmit={(event) => {
           event.preventDefault();
-          const data = new FormData(event.currentTarget);
-          apply({
-            min: String(data.get("min") ?? "") || undefined,
-            max: String(data.get("max") ?? "") || undefined,
-          });
+          apply();
         }}
       >
-        <div className="w-full space-y-1.5 sm:w-36">
+        <div className="w-full space-y-1.5">
           <Label htmlFor="filter-min">{t("minPrice")}</Label>
           <Input
             id="filter-min"
@@ -183,10 +233,18 @@ export function PropertyFilters({
             min={0}
             inputMode="numeric"
             dir="ltr"
-            defaultValue={current.min ?? ""}
+            placeholder={t("minPricePlaceholder")}
+            className="h-11"
+            value={draft.min}
+            onChange={(event) =>
+              setDraft((previous) => ({
+                ...previous,
+                min: event.target.value,
+              }))
+            }
           />
         </div>
-        <div className="w-full space-y-1.5 sm:w-36">
+        <div className="w-full space-y-1.5">
           <Label htmlFor="filter-max">{t("maxPrice")}</Label>
           <Input
             id="filter-max"
@@ -195,23 +253,39 @@ export function PropertyFilters({
             min={0}
             inputMode="numeric"
             dir="ltr"
-            defaultValue={current.max ?? ""}
+            placeholder={t("maxPricePlaceholder")}
+            className="h-11"
+            value={draft.max}
+            onChange={(event) =>
+              setDraft((previous) => ({
+                ...previous,
+                max: event.target.value,
+              }))
+            }
           />
         </div>
-        <Button type="submit" variant="secondary" disabled={pending}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={pending}
+          className="lg:justify-self-start"
+        >
           {common("apply")}
         </Button>
-        {hasFilters ? (
+        {hasFilters || hasDraftFilters ? (
           <Button
             type="button"
             variant="ghost"
+            size="lg"
+            className="lg:justify-self-start"
             disabled={pending}
-            onClick={() =>
-              startTransition(() => router.push(basePath, { scroll: false }))
-            }
+            onClick={() => {
+              setDraft(toPropertyFilterState({}));
+              startTransition(() => router.push(basePath, { scroll: false }));
+            }}
           >
             <X className="size-4" aria-hidden />
-            {common("clearAll")}
+            {t("clearFilters")}
           </Button>
         ) : null}
       </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -35,6 +36,8 @@ export function SpecEditor({
   propertyId: string;
   initialSpecs: SpecRow[];
 }) {
+  const t = useTranslations("specEditor");
+  const common = useTranslations("common");
   const { run, pending } = useAdminAction();
   const [rows, setRows] = useState<SpecRow[]>(initialSpecs);
 
@@ -56,13 +59,13 @@ export function SpecEditor({
     );
 
     if (incomplete) {
-      toast.error("Complete all four fields on each specification row.");
+      toast.error(t("incomplete"));
       return;
     }
 
     run(
       () => savePropertySpecs({ propertyId, specs: filled }),
-      "Specifications saved.",
+      t("saved"),
       () => setRows(filled),
     );
   }
@@ -71,11 +74,8 @@ export function SpecEditor({
     <div className="space-y-4">
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="font-medium">No specifications</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Specifications are optional. Add rows to show a details table on the
-            property page.
-          </p>
+          <p className="font-medium">{t("empty")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("hint")}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -86,7 +86,7 @@ export function SpecEditor({
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2" dir="ltr">
-                  <Label htmlFor={`key_en-${index}`}>Label (English)</Label>
+                  <Label htmlFor={`key_en-${index}`}>{t("keyEn")}</Label>
                   <Input
                     id={`key_en-${index}`}
                     value={row.key_en}
@@ -96,7 +96,7 @@ export function SpecEditor({
                   />
                 </div>
                 <div className="grid gap-2" dir="rtl">
-                  <Label htmlFor={`key_ar-${index}`}>التسمية (العربية)</Label>
+                  <Label htmlFor={`key_ar-${index}`}>{t("keyAr")}</Label>
                   <Input
                     id={`key_ar-${index}`}
                     value={row.key_ar}
@@ -106,7 +106,7 @@ export function SpecEditor({
                   />
                 </div>
                 <div className="grid gap-2" dir="ltr">
-                  <Label htmlFor={`value_en-${index}`}>Value (English)</Label>
+                  <Label htmlFor={`value_en-${index}`}>{t("valueEn")}</Label>
                   <Input
                     id={`value_en-${index}`}
                     value={row.value_en}
@@ -116,7 +116,7 @@ export function SpecEditor({
                   />
                 </div>
                 <div className="grid gap-2" dir="rtl">
-                  <Label htmlFor={`value_ar-${index}`}>القيمة (العربية)</Label>
+                  <Label htmlFor={`value_ar-${index}`}>{t("valueAr")}</Label>
                   <Input
                     id={`value_ar-${index}`}
                     value={row.value_ar}
@@ -138,7 +138,7 @@ export function SpecEditor({
                   }
                 >
                   <Trash2 className="size-4" aria-hidden />
-                  Remove
+                  {t("removeRow")}
                 </Button>
               </div>
             </li>
@@ -154,10 +154,10 @@ export function SpecEditor({
           onClick={() => setRows((current) => [...current, { ...EMPTY_ROW }])}
         >
           <Plus className="size-4" aria-hidden />
-          Add specification
+          {t("add")}
         </Button>
         <Button type="button" disabled={pending} onClick={save}>
-          {pending ? "Saving…" : "Save specifications"}
+          {pending ? common("saving") : t("save")}
         </Button>
       </div>
     </div>

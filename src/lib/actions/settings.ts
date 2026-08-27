@@ -1,41 +1,32 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
-
-import { cacheTags } from "@/lib/cache-tags";
-import { logAndMap, type ActionResult } from "@/lib/errors";
+import { updateDatasets } from "@/lib/cache/freshness";
+import { logAndMap, validationFailure, type ActionResult } from "@/lib/errors";
+import { inspectImageBlob } from "@/lib/image-signatures";
+import {
+  MAX_AVATAR_BYTES,
+  MAX_LOGO_BYTES,
+} from "@/lib/settings-media-rules";
 import { storagePathFromUrl, storagePaths } from "@/lib/storage";
 import { requireAdminAction } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_SETTINGS_KEY, STORAGE_BUCKET } from "@/lib/supabase/types";
 
-const MAX_LOGO_BYTES = 2 * 1024 * 1024;
-const MAX_AVATAR_BYTES = 1 * 1024 * 1024;
+/** The logo and avatar are small, so they still travel through the action. */
+async function refreshSiteSettings() {
+  await updateDatasets(["site_settings"], {
+    paths: ["/dashboard-admin/settings"],
+  });
+}
 
-const SIGNATURES: { ext: string; mime: string; test: (b: Uint8Array) => boolean }[] = [
-  {
-    ext: "jpg",
-    mime: "image/jpeg",
-    test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
-  },
-  {
-    ext: "png",
-    mime: "image/png",
-    test: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
-  },
-  {
-    ext: "webp",
-    mime: "image/webp",
-    test: (b) =>
-      b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
-      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50,
-  },
-];
-
-async function inspectImage(file: File, maxBytes: number) {
-  if (file.size === 0 || file.size > maxBytes) return null;
-  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  return SIGNATURES.find((signature) => signature.test(header)) ?? null;
+/**
+ * The admin shell renders the name and avatar on every screen, so the whole
+ * admin layout is dropped rather than a single page.
+ */
+async function refreshAdminProfile() {
+  await updateDatasets(["admin_profiles"], {
+    paths: [{ path: "/dashboard-admin", type: "layout" }],
+  });
 }
 
 /**
@@ -54,8 +45,12 @@ export async function uploadSiteLogo(
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, error: "validation" };
 
-  const kind = await inspectImage(file, MAX_LOGO_BYTES);
-  if (!kind) return { ok: false, error: "invalidFile" };
+  const kind = await inspectImageBlob(file, MAX_LOGO_BYTES);
+  if (!kind) {
+    return file.size > MAX_LOGO_BYTES
+      ? { ok: false, error: "fileTooLarge" }
+      : { ok: false, error: "invalidFile" };
+  }
 
   const supabase = await createClient();
 
@@ -76,12 +71,13 @@ export async function uploadSiteLogo(
     return { ok: false, error: "uploadFailed" };
   }
 
-  // site_settings is a singleton keyed on 'main'; upsert keeps it that way.
   const { error } = await supabase
     .from("site_settings")
-    .upsert({ key: SITE_SETTINGS_KEY, logo_path: path }, { onConflict: "key" });
+    .update({ logo_path: path })
+    .eq("key", SITE_SETTINGS_KEY);
 
   if (error) {
+    // Roll the new object back so a failed save leaves no orphan behind.
     await supabase.storage.from(STORAGE_BUCKET).remove([path]);
     return { ok: false, error: logAndMap("uploadSiteLogo", error) };
   }
@@ -92,8 +88,7 @@ export async function uploadSiteLogo(
     await supabase.storage.from(STORAGE_BUCKET).remove([previous]);
   }
 
-  revalidateTag(cacheTags.siteSettings, "max");
-  revalidatePath("/dashboard-admin/settings");
+  await refreshSiteSettings();
   return { ok: true };
 }
 
@@ -114,15 +109,15 @@ export async function removeSiteLogo(): Promise<ActionResult> {
 
   const { error } = await supabase
     .from("site_settings")
-    .upsert({ key: SITE_SETTINGS_KEY, logo_path: null }, { onConflict: "key" });
+    .update({ logo_path: null })
+    .eq("key", SITE_SETTINGS_KEY);
 
   if (error) return { ok: false, error: logAndMap("removeSiteLogo", error) };
 
   const path = storagePathFromUrl(current?.logo_path ?? null);
   if (path) await supabase.storage.from(STORAGE_BUCKET).remove([path]);
 
-  revalidateTag(cacheTags.siteSettings, "max");
-  revalidatePath("/dashboard-admin/settings");
+  await refreshSiteSettings();
   return { ok: true };
 }
 
@@ -137,17 +132,20 @@ export async function updateAdminProfile(
   }
 
   const name = String(formData.get("name") ?? "").trim();
-  if (name.length < 2 || name.length > 120) {
-    return { ok: false, error: "validation" };
-  }
+  if (name.length < 2) return validationFailure({ name: "required" });
+  if (name.length > 120) return validationFailure({ name: "tooLong" });
 
   const supabase = await createClient();
   const file = formData.get("avatar");
   let avatarPath: string | undefined;
 
   if (file instanceof File && file.size > 0) {
-    const kind = await inspectImage(file, MAX_AVATAR_BYTES);
-    if (!kind) return { ok: false, error: "invalidFile" };
+    const kind = await inspectImageBlob(file, MAX_AVATAR_BYTES);
+    if (!kind) {
+      return file.size > MAX_AVATAR_BYTES
+        ? { ok: false, error: "fileTooLarge" }
+        : { ok: false, error: "invalidFile" };
+    }
 
     // Namespaced by admin id, matching the storage policy's path expectations.
     const path = storagePaths.adminAvatar(
@@ -184,6 +182,41 @@ export async function updateAdminProfile(
     await supabase.storage.from(STORAGE_BUCKET).remove([previous]);
   }
 
-  revalidatePath("/dashboard-admin", "layout");
+  await refreshAdminProfile();
+  return { ok: true };
+}
+
+/**
+ * Clears the avatar and deletes its object. Unlike the project cover there is
+ * nothing to gate on — the shell falls back to the generic person icon.
+ */
+export async function removeAdminAvatar(): Promise<ActionResult> {
+  let session;
+  try {
+    session = await requireAdminAction();
+  } catch {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  if (!session.profile.avatar_path) return { ok: true };
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("admin_profiles")
+    .update({ avatar_path: null })
+    .eq("id", session.userId);
+
+  if (error) return { ok: false, error: logAndMap("removeAdminAvatar", error) };
+
+  const previous = storagePathFromUrl(session.profile.avatar_path);
+  if (previous) {
+    const { error: removeError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .remove([previous]);
+    if (removeError) console.error("[removeAdminAvatar] storage", removeError);
+  }
+
+  await refreshAdminProfile();
   return { ok: true };
 }

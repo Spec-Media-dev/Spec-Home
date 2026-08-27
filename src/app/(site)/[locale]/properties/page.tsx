@@ -1,9 +1,12 @@
+import { SearchX } from "lucide-react";
+import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { PageHeader } from "@/components/site/page-header";
 import { Pagination } from "@/components/site/pagination";
 import { PropertyCard } from "@/components/site/property-card";
 import { PropertyFilters } from "@/components/site/property-filters";
+import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/routing";
 import { getProjectOptions } from "@/lib/data/projects";
 import { getPropertyTypes, listProperties } from "@/lib/data/properties";
@@ -92,14 +95,16 @@ export default async function PropertiesPage({
   );
 
   const basePath = localizedPath("/properties", locale);
+  const hasActiveFilters = Object.values(current).some(Boolean);
 
   return (
     <>
       <JsonLd data={graph} />
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
-      <section className="container-content space-y-8 py-10 pb-20">
+      <section className="container-content space-y-8 py-10 pb-24 sm:py-14">
         <PropertyFilters
+          key={JSON.stringify(current)}
           basePath={basePath}
           current={current}
           projects={projectOptions.map((project) => ({
@@ -112,7 +117,10 @@ export default async function PropertiesPage({
           }))}
         />
 
-        <p className="text-sm text-muted-foreground" aria-live="polite">
+        <p
+          className="border-b border-border pb-4 text-sm font-medium text-muted-foreground"
+          aria-live="polite"
+        >
           {t("count", { count: result.total })}
         </p>
 
@@ -136,11 +144,23 @@ export default async function PropertiesPage({
             />
           </>
         ) : (
-          <div className="rounded-lg border border-dashed border-border p-12 text-center">
-            <p className="font-medium">{t("empty")}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center shadow-sm">
+            <span className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-muted text-brand-navy dark:text-brand-gold">
+              <SearchX className="size-5" aria-hidden />
+            </span>
+            <p className="mt-5 text-lg font-semibold">{t("empty")}</p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
               {t("emptyHint")}
             </p>
+            {hasActiveFilters ? (
+              <Button
+                className="mt-6"
+                nativeButton={false}
+                render={<Link href={basePath} />}
+              >
+                {t("clearFilters")}
+              </Button>
+            ) : null}
           </div>
         )}
       </section>

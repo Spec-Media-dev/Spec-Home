@@ -104,14 +104,14 @@ export default async function PropertyDetailPage({
     property.bathrooms !== null
       ? {
           Icon: Bath,
-          label: t("keyFacts"),
+          label: t("bathrooms"),
           value: units("bathrooms", { count: property.bathrooms }),
         }
       : null,
     area
       ? {
           Icon: Maximize,
-          label: t("filterType"),
+          label: t("area"),
           value: units("sqft", { value: area }),
         }
       : null,

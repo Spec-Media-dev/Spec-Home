@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SPEC Home
 
-## Getting Started
+Production-oriented bilingual real-estate website and admin dashboard built
+with Next.js 16, React 19, Supabase, and next-intl.
 
-First, run the development server:
+## Local development
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. Copy the required Supabase and public site values into `.env.local`.
+2. Install dependencies with `npm install`.
+3. Start the app with `npm run dev`.
+4. Open `http://localhost:3000` for the public site or
+   `http://localhost:3000/dashboard-admin` for Admin.
+
+The service-role key is server-only. Never prefix it with `NEXT_PUBLIC_`, place
+it in client code, or commit it. The same applies to `SUPABASE_WEBHOOK_SECRET`
+(see below), which is optional locally.
+
+## Admin language
+
+The console is available in English (LTR) and Arabic (RTL) at the same routes.
+The choice is a cookie, not a URL segment, so `/dashboard-admin/...` is a single
+set of routes in both languages. Copy lives in `messages/admin/{en,ar}.json`;
+the two files are kept structurally identical and a unit test asserts it.
+
+Content fields are separate from the interface: English content is always
+authored LTR and Arabic content RTL, whichever language the console is in.
+
+## Content freshness
+
+Changes made *through the application* invalidate their cache tags immediately
+and notify connected browsers over a sanitized Realtime Broadcast. Changes made
+*directly in the Supabase dashboard* reach browsers through a signed Database
+Webhook, which requires a deployed origin.
+
+Setup and verification steps: `docs/DEPLOYMENT-FRESHNESS.md`.
+
+## Verification
+
+```text
+npm run lint
+npm run typecheck
+npm test
+npm run test:integration
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The integration suite uses clearly prefixed temporary records and removes them
+afterward. It requires the local environment variables, including the
+server-only service-role key.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project documentation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Product and data contract: `docs/SPEC-HOME-BRIEF.md`
+- Existing-admin recovery: `docs/ADMIN-RECOVERY.md`
+- Freshness deployment and activation: `docs/DEPLOYMENT-FRESHNESS.md`
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Images are stored in the existing Supabase Storage bucket `site-media`.
+PostgreSQL stores only bucket-relative image paths and other schema metadata.

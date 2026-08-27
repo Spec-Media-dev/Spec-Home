@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { getSiteSettings } from "@/lib/data/settings";
 import { storageUrl } from "@/lib/storage";
+import { HeaderNavLinks } from "./HeaderNavLinks";
 
 export const navItems = [
   { href: "/", key: "home" },
@@ -37,17 +38,10 @@ export async function SiteHeader() {
 
         <nav
           aria-label={common("brandShort")}
-          className="ms-auto hidden items-center gap-8 lg:flex"
+          className="ms-auto hidden items-center gap-8  lg:flex"
         >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {link.label}
-            </Link>
-          ))}
+          <HeaderNavLinks links={links} />
+          
         </nav>
 
         <div className="ms-auto flex items-center gap-1 lg:ms-0 lg:gap-2">
@@ -63,7 +57,7 @@ export async function SiteHeader() {
           >
             {common("enquire")}
           </Button>
-          <MobileNav links={links} />
+          <MobileNav links={links} logoUrl={logoUrl} />
         </div>
       </div>
     </header>

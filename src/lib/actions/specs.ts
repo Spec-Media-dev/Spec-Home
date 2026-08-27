@@ -1,8 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
-
-import { cacheTags } from "@/lib/cache-tags";
+import { updateDatasets } from "@/lib/cache/freshness";
 import { logAndMap, type ActionResult } from "@/lib/errors";
 import { requireAdminAction } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -65,8 +63,11 @@ export async function savePropertySpecs(raw: unknown): Promise<ActionResult> {
     }
   }
 
-  revalidateTag(cacheTags.properties, "max");
-  revalidatePath(`/dashboard-admin/properties/${propertyId}/specs`);
-  revalidatePath(`/properties/${property.slug}`);
+  await updateDatasets(["property_specs"], {
+    paths: [
+      `/dashboard-admin/properties/${propertyId}/specs`,
+      `/properties/${property.slug}`,
+    ],
+  });
   return { ok: true };
 }

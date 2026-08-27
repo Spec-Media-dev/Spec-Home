@@ -1,6 +1,7 @@
 "use client";
 
 import { MoreHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -33,6 +34,8 @@ export function ProjectRowActions({
   isPublished,
   isFeatured,
 }: ProjectRowActionsProps) {
+  const t = useTranslations("projects");
+  const common = useTranslations("common");
   const { run, pending } = useAdminAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -44,7 +47,7 @@ export function ProjectRowActions({
             <Button
               variant="ghost"
               size="icon"
-              aria-label={`Actions for ${name}`}
+              aria-label={common("actionsFor", { name })}
             >
               <MoreHorizontal className="size-4" aria-hidden />
             </Button>
@@ -54,12 +57,12 @@ export function ProjectRowActions({
           <DropdownMenuItem
             render={<Link href={`/dashboard-admin/projects/${id}/edit`} />}
           >
-            Edit
+            {common("edit")}
           </DropdownMenuItem>
           <DropdownMenuItem
             render={<Link href={`/dashboard-admin/properties?project=${id}`} />}
           >
-            View properties
+            {t("viewProperties")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -67,22 +70,22 @@ export function ProjectRowActions({
             onClick={() =>
               run(
                 () => setProjectPublished(id, !isPublished),
-                isPublished ? "Project unpublished." : "Project published.",
+                isPublished ? t("unpublishedToast") : t("publishedToast"),
               )
             }
           >
-            {isPublished ? "Unpublish" : "Publish"}
+            {isPublished ? common("unpublish") : common("publish")}
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={pending}
             onClick={() =>
               run(
                 () => setProjectFeatured(id, !isFeatured),
-                isFeatured ? "Removed from featured." : "Marked as featured.",
+                isFeatured ? t("unfeaturedToast") : t("featuredToast"),
               )
             }
           >
-            {isFeatured ? "Unfeature" : "Feature"}
+            {isFeatured ? common("unfeature") : common("feature")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -90,7 +93,7 @@ export function ProjectRowActions({
             disabled={pending}
             onClick={() => setConfirmOpen(true)}
           >
-            Delete
+            {common("delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -98,13 +101,13 @@ export function ProjectRowActions({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete ${name}?`}
-        description="This cannot be undone. Projects that still have properties cannot be deleted."
-        confirmLabel="Delete project"
+        title={t("deleteTitle", { name })}
+        description={t("deleteBody")}
+        confirmLabel={t("deleteConfirm")}
         pending={pending}
         onConfirm={() => {
           setConfirmOpen(false);
-          run(() => deleteProject(id), "Project deleted.");
+          run(() => deleteProject(id), t("deletedToast"));
         }}
       />
     </>

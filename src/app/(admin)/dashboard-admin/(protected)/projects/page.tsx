@@ -13,40 +13,48 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getAdminTranslations } from "@/lib/admin-i18n";
 import { getAdminProjects } from "@/lib/data/admin";
 
-export const metadata = { title: "Projects" };
+export async function generateMetadata() {
+  const t = await getAdminTranslations("projects");
+  return { title: t("metaTitle") };
+}
 
 export default async function AdminProjectsPage() {
-  const projects = await getAdminProjects();
+  const [t, common, projects] = await Promise.all([
+    getAdminTranslations("projects"),
+    getAdminTranslations("common"),
+    getAdminProjects(),
+  ]);
 
   return (
     <div className="space-y-6">
       <AdminPageTitle
-        title="Projects"
-        description="Every property must belong to a project."
+        title={t("title")}
+        description={t("description")}
         actions={
           <Button
             nativeButton={false}
             render={<Link href="/dashboard-admin/projects/new" />}
           >
-            New project
+            {t("new")}
           </Button>
         }
       />
 
       {projects.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <p className="font-medium">No projects yet</p>
+          <p className="font-medium">{t("emptyTitle")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create your first project to start adding properties.
+            {t("emptyBody")}
           </p>
           <Button
             className="mt-5"
             nativeButton={false}
             render={<Link href="/dashboard-admin/projects/new" />}
           >
-            Create project
+            {t("emptyAction")}
           </Button>
         </div>
       ) : (
@@ -54,10 +62,11 @@ export default async function AdminProjectsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Developer</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Visibility</TableHead>
+                <TableHead>{t("columnProject")}</TableHead>
+                <TableHead>{t("columnDeveloper")}</TableHead>
+                <TableHead>{t("columnStatus")}</TableHead>
+                <TableHead>{t("columnCover")}</TableHead>
+                <TableHead>{t("columnVisibility")}</TableHead>
                 <TableHead className="w-px" />
               </TableRow>
             </TableHeader>
@@ -81,16 +90,21 @@ export default async function AdminProjectsPage() {
                   <TableCell>
                     <StatusChip status={project.status} />
                   </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {project.cover_image_path ? "—" : t("coverMissing")}
+                  </TableCell>
                   <TableCell>
                     <span className="flex flex-wrap gap-1.5">
                       <Badge
                         variant={project.is_published ? "default" : "outline"}
                       >
-                        {project.is_published ? "Published" : "Draft"}
+                        {project.is_published
+                          ? common("published")
+                          : common("draft")}
                       </Badge>
                       {project.is_featured ? (
                         <Badge className="bg-brand-gold text-brand-charcoal hover:bg-brand-gold">
-                          Featured
+                          {common("featured")}
                         </Badge>
                       ) : null}
                     </span>

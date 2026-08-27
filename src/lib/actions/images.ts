@@ -1,73 +1,62 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
-
-import { cacheTags } from "@/lib/cache-tags";
+import { updateDatasets } from "@/lib/cache/freshness";
 import { logAndMap, type ActionResult } from "@/lib/errors";
-import { storagePathFromUrl, storagePaths, storageUrl } from "@/lib/storage";
+import { inspectImageBlob, kindForMime } from "@/lib/image-signatures";
+import {
+  MAX_PROPERTY_IMAGE_BYTES,
+  propertyImageRuleError,
+  type PropertyImageDescriptor,
+} from "@/lib/property-image-rules";
+import { storagePathFromUrl, storagePaths } from "@/lib/storage";
 import { requireAdminAction } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { MAX_PROPERTY_IMAGES, STORAGE_BUCKET } from "@/lib/supabase/types";
+import { isUuid } from "@/lib/validations/id";
 
-const MAX_BYTES = 5 * 1024 * 1024;
-
-const SIGNATURES: { ext: string; mime: string; test: (b: Uint8Array) => boolean }[] = [
-  {
-    ext: "jpg",
-    mime: "image/jpeg",
-    test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
-  },
-  {
-    ext: "png",
-    mime: "image/png",
-    test: (b) =>
-      b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
-  },
-  {
-    ext: "webp",
-    mime: "image/webp",
-    test: (b) =>
-      b[0] === 0x52 &&
-      b[1] === 0x49 &&
-      b[2] === 0x46 &&
-      b[3] === 0x46 &&
-      b[8] === 0x57 &&
-      b[9] === 0x45 &&
-      b[10] === 0x42 &&
-      b[11] === 0x50,
-  },
-];
+const MAX_BYTES = MAX_PROPERTY_IMAGE_BYTES;
+const UUID_SOURCE =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const UUID_PATTERN = new RegExp(`^${UUID_SOURCE}$`, "i");
+const PROPERTY_IMAGE_PATH_PATTERN = new RegExp(
+  `^properties/(${UUID_SOURCE})/(${UUID_SOURCE})\\.(jpg|png|webp)$`,
+  "i",
+);
 
 /**
  * `file.type` is attacker-controlled, so the real format is confirmed from the
- * leading bytes. The bucket also enforces its own MIME allowlist and size cap,
- * so a forged upload fails at two independent layers.
+ * leading bytes by the shared detector. The bucket also enforces its own MIME
+ * allowlist and size cap, so a forged upload fails at two independent layers.
  */
-async function inspectImage(file: File) {
-  if (file.size === 0 || file.size > MAX_BYTES) return null;
+const inspectImage = (file: Blob) => inspectImageBlob(file, MAX_BYTES);
 
-  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  return SIGNATURES.find((signature) => signature.test(header)) ?? null;
-}
+export type SignedImageUpload = {
+  path: string;
+  token: string;
+};
 
-export async function uploadPropertyImage(
-  formData: FormData,
-): Promise<ActionResult> {
+/**
+ * Authorises a batch and creates short-lived, path-scoped upload tokens. The
+ * browser sends the binary directly to Storage, never through a Server Action.
+ */
+export async function preparePropertyImageUploads(
+  propertyId: string,
+  files: PropertyImageDescriptor[],
+): Promise<ActionResult<SignedImageUpload[]>> {
   try {
     await requireAdminAction();
   } catch {
     return { ok: false, error: "unauthorized" };
   }
 
-  const propertyId = String(formData.get("propertyId") ?? "");
-  const file = formData.get("file");
-
-  if (!propertyId || !(file instanceof File)) {
+  if (
+    !UUID_PATTERN.test(propertyId) ||
+    files.length === 0
+  ) {
     return { ok: false, error: "validation" };
   }
 
-  const kind = await inspectImage(file);
-  if (!kind) return { ok: false, error: "invalidFile" };
+  const kinds = files.map((file) => kindForMime(file.type));
 
   const supabase = await createClient();
 
@@ -79,30 +68,123 @@ export async function uploadPropertyImage(
 
   if (!property) return { ok: false, error: "notFound" };
 
-  // Re-counted immediately before the insert rather than trusting the client's
-  // view of how many images already exist.
+  const { count } = await supabase
+    .from("property_images")
+    .select("id", { count: "exact", head: true })
+    .eq("property_id", propertyId);
+
+  const ruleError = propertyImageRuleError(count ?? 0, files);
+  if (ruleError) return { ok: false, error: ruleError };
+  if (kinds.some((kind) => !kind)) return { ok: false, error: "invalidFile" };
+
+  const tickets = await Promise.all(
+    kinds.map(async (kind) => {
+      const path = storagePaths.propertyImage(
+        propertyId,
+        `${crypto.randomUUID()}.${kind!.ext}`,
+      );
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUploadUrl(path);
+      return { data, error };
+    }),
+  );
+
+  const failed = tickets.find((ticket) => ticket.error || !ticket.data);
+  if (failed) {
+    if (failed.error) console.error("[preparePropertyImageUploads]", failed.error);
+    return { ok: false, error: "uploadFailed" };
+  }
+
+  return {
+    ok: true,
+    data: tickets.map(({ data }) => ({
+      path: data!.path,
+      token: data!.token,
+    })),
+  };
+}
+
+/**
+ * Verifies the uploaded object itself before recording its path in Postgres.
+ * Invalid or excess objects are removed so failed finalisation cannot leave
+ * orphaned files behind.
+ */
+export async function finalizePropertyImageUpload(
+  propertyId: string,
+  path: string,
+): Promise<ActionResult> {
+  try {
+    await requireAdminAction();
+  } catch {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  if (!UUID_PATTERN.test(propertyId)) {
+    return { ok: false, error: "validation" };
+  }
+
+  const pathMatch = path.match(PROPERTY_IMAGE_PATH_PATTERN);
+  if (!pathMatch || pathMatch[1].toLowerCase() !== propertyId.toLowerCase()) {
+    return { ok: false, error: "validation" };
+  }
+
+  const supabase = await createClient();
+  const cleanup = async () => {
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([path]);
+    if (error) console.error("[finalizePropertyImageUpload cleanup]", error);
+  };
+
+  const { data: property } = await supabase
+    .from("properties")
+    .select("id, slug")
+    .eq("id", propertyId)
+    .maybeSingle();
+
+  if (!property) {
+    await cleanup();
+    return { ok: false, error: "notFound" };
+  }
+
+  const { data: duplicate } = await supabase
+    .from("property_images")
+    .select("id")
+    .eq("property_id", propertyId)
+    .eq("image_url", path)
+    .maybeSingle();
+  // Never clean up here: this path is already referenced by a valid row.
+  if (duplicate) return { ok: false, error: "validation" };
+
+  const { data: file, error: downloadError } = await supabase.storage
+    .from(STORAGE_BUCKET)
+    .download(path);
+  if (downloadError || !file) {
+    await cleanup();
+    if (downloadError) console.error("[finalizePropertyImageUpload download]", downloadError);
+    return { ok: false, error: "uploadFailed" };
+  }
+
+  if (file.size > MAX_BYTES) {
+    await cleanup();
+    return { ok: false, error: "fileTooLarge" };
+  }
+
+  const kind = await inspectImage(file);
+  if (!kind || kind.ext.toLowerCase() !== pathMatch[3].toLowerCase()) {
+    await cleanup();
+    return { ok: false, error: "invalidFile" };
+  }
+
+  // Re-count immediately before the database insert. This is authoritative;
+  // the UI's remaining-count check is only a convenience.
   const { data: existing } = await supabase
     .from("property_images")
     .select("id, display_order")
     .eq("property_id", propertyId);
-
   const current = existing ?? [];
   if (current.length >= MAX_PROPERTY_IMAGES) {
+    await cleanup();
     return { ok: false, error: "imageLimit" };
-  }
-
-  // Random name: the client's filename never reaches storage, which removes
-  // path traversal, unicode tricks, and collisions in one step.
-  const objectName = `${crypto.randomUUID()}.${kind.ext}`;
-  const path = storagePaths.propertyImage(propertyId, objectName);
-
-  const { error: uploadError } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(path, file, { contentType: kind.mime, upsert: false });
-
-  if (uploadError) {
-    console.error("[uploadPropertyImage] storage", uploadError);
-    return { ok: false, error: "uploadFailed" };
   }
 
   const nextOrder =
@@ -116,14 +198,16 @@ export async function uploadPropertyImage(
   });
 
   if (error) {
-    // Roll the object back so a failed insert cannot orphan a file.
-    await supabase.storage.from(STORAGE_BUCKET).remove([path]);
-    return { ok: false, error: logAndMap("uploadPropertyImage", error) };
+    await cleanup();
+    return { ok: false, error: logAndMap("finalizePropertyImageUpload", error) };
   }
 
-  revalidateTag(cacheTags.properties, "max");
-  revalidatePath(`/dashboard-admin/properties/${propertyId}/images`);
-  revalidatePath(`/properties/${property.slug}`);
+  await updateDatasets(["property_images"], {
+    paths: [
+      `/dashboard-admin/properties/${propertyId}/images`,
+      `/properties/${property.slug}`,
+    ],
+  });
   return { ok: true };
 }
 
@@ -135,6 +219,7 @@ export async function deletePropertyImage(
   } catch {
     return { ok: false, error: "unauthorized" };
   }
+  if (!isUuid(imageId)) return { ok: false, error: "validation" };
 
   const supabase = await createClient();
 
@@ -199,9 +284,12 @@ export async function deletePropertyImage(
     }
   }
 
-  revalidateTag(cacheTags.properties, "max");
-  revalidatePath(`/dashboard-admin/properties/${image.property_id}/images`);
-  if (property?.slug) revalidatePath(`/properties/${property.slug}`);
+  await updateDatasets(["property_images"], {
+    paths: [
+      `/dashboard-admin/properties/${image.property_id}/images`,
+      ...(property?.slug ? [`/properties/${property.slug}`] : []),
+    ],
+  });
   return { ok: true };
 }
 
@@ -213,6 +301,7 @@ export async function setPropertyImageCover(
   } catch {
     return { ok: false, error: "unauthorized" };
   }
+  if (!isUuid(imageId)) return { ok: false, error: "validation" };
 
   const supabase = await createClient();
 
@@ -243,8 +332,9 @@ export async function setPropertyImageCover(
     return { ok: false, error: logAndMap("setPropertyImageCover", error) };
   }
 
-  revalidateTag(cacheTags.properties, "max");
-  revalidatePath(`/dashboard-admin/properties/${image.property_id}/images`);
+  await updateDatasets(["property_images"], {
+    paths: [`/dashboard-admin/properties/${image.property_id}/images`],
+  });
   return { ok: true };
 }
 
@@ -256,6 +346,14 @@ export async function reorderPropertyImages(
     await requireAdminAction();
   } catch {
     return { ok: false, error: "unauthorized" };
+  }
+  if (
+    !isUuid(propertyId) ||
+    !Array.isArray(orderedIds) ||
+    orderedIds.length > MAX_PROPERTY_IMAGES ||
+    orderedIds.some((id) => !isUuid(id))
+  ) {
+    return { ok: false, error: "validation" };
   }
 
   const supabase = await createClient();
@@ -282,11 +380,8 @@ export async function reorderPropertyImages(
     }
   }
 
-  revalidateTag(cacheTags.properties, "max");
-  revalidatePath(`/dashboard-admin/properties/${propertyId}/images`);
+  await updateDatasets(["property_images"], {
+    paths: [`/dashboard-admin/properties/${propertyId}/images`],
+  });
   return { ok: true };
-}
-
-export async function getPropertyImageUrl(path: string) {
-  return storageUrl(path);
 }

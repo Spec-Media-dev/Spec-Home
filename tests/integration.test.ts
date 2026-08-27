@@ -154,7 +154,7 @@ describe("supabase invariants", { skip: !configured }, () => {
       .select("id", { count: "exact", head: true })
       .eq("property_id", propertyId);
 
-    // This is the exact check uploadPropertyImage performs before inserting.
+    // Both upload preparation and finalisation repeat this authoritative count.
     assert.equal(count, 4);
     assert.equal(count! >= 4, true, "a fifth upload must be refused");
 
@@ -196,5 +196,104 @@ describe("supabase invariants", { skip: !configured }, () => {
       .from("site_settings")
       .insert({ key: "secondary" });
     assert.notEqual(error, null, "the single-row CHECK must reject other keys");
+  });
+
+  test("anon cannot read admin_profiles", async () => {
+    // The admin's name and avatar path are private: the public site never
+    // needs them, and the realtime bridge never broadcasts them.
+    const { data, error } = await anon.from("admin_profiles").select("*");
+    assert.ok(
+      error !== null || (data ?? []).length === 0,
+      "admin_profiles must not be readable by the anon role",
+    );
+  });
+
+  test("anon cannot write site_settings", async () => {
+    const { error } = await anon
+      .from("site_settings")
+      .update({ logo_path: "spoofed/logo.png" })
+      .eq("key", "main");
+    assert.notEqual(error, null, "only an admin may change the site logo");
+  });
+
+  test("a draft project may have no cover, a published one must have one", async () => {
+    // The database itself does not enforce this — the gate lives in
+    // lib/actions/projects.ts — so this asserts the column behaves as the
+    // action assumes: nullable, and settable back to null on a draft.
+    const { data: draft, error: draftError } = await svc
+      .from("projects")
+      .insert({
+        name_en: "ITEST – Cover Draft",
+        name_ar: "اختبار – غلاف",
+        slug: `itest-cover-${Date.now()}`,
+        developer_en: "ITEST Developer",
+        developer_ar: "مطور اختبار",
+        is_published: false,
+      })
+      .select("id, cover_image_path")
+      .single();
+
+    assert.equal(draftError, null);
+    assert.equal(draft!.cover_image_path, null);
+
+    const { error: setError } = await svc
+      .from("projects")
+      .update({ cover_image_path: `projects/${draft!.id}/cover.webp` })
+      .eq("id", draft!.id);
+    assert.equal(setError, null);
+
+    const { error: clearError } = await svc
+      .from("projects")
+      .update({ cover_image_path: null })
+      .eq("id", draft!.id);
+    assert.equal(clearError, null);
+
+    await svc.from("projects").delete().eq("id", draft!.id);
+  });
+
+  test("a duplicate project slug is rejected by the database", async () => {
+    // Belt and braces: the action refuses a collision before insert, and this
+    // confirms the unique index would refuse it even if the action did not.
+    const slug = `itest-dup-${Date.now()}`;
+    const row = {
+      name_ar: "اختبار – مكرر",
+      developer_en: "ITEST Developer",
+      developer_ar: "مطور اختبار",
+    };
+
+    const { data: first, error: firstError } = await svc
+      .from("projects")
+      .insert({ ...row, name_en: "ITEST – Duplicate A", slug })
+      .select("id")
+      .single();
+    assert.equal(firstError, null);
+
+    const { error: secondError } = await svc
+      .from("projects")
+      .insert({ ...row, name_en: "ITEST – Duplicate B", slug })
+      .select("id")
+      .single();
+    assert.notEqual(secondError, null, "slug must be unique");
+
+    await svc.from("projects").delete().eq("id", first!.id);
+  });
+
+  test("the seven approved tables exist and are readable by the service role", async () => {
+    // The webhook allowlist and the dataset map both name these seven; a
+    // rename would silently stop refreshing that dataset.
+    for (const table of [
+      "site_settings",
+      "admin_profiles",
+      "projects",
+      "properties",
+      "property_images",
+      "property_specs",
+      "enquiries",
+    ] as const) {
+      const { error } = await svc
+        .from(table)
+        .select("*", { count: "exact", head: true });
+      assert.equal(error, null, `${table} must exist`);
+    }
   });
 });
