@@ -576,7 +576,6 @@ Visitor Form
 → Zod
 → honeypot
 → rate limiting
-→ Turnstile when credentials exist
 → server-only privileged Supabase client
 → enquiries
 

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { EnquiryStatusControl } from "@/components/admin/enquiry-status-control";
+import { EnquiryActions } from "@/components/admin/enquiry-actions";
 import { AdminPageTitle } from "@/components/admin/page-title";
+import { StatusChip } from "@/components/admin/status-chip";
 import { Button } from "@/components/ui/button";
 import {
   ADMIN_INTL_LOCALE,
@@ -128,7 +129,13 @@ export default async function AdminEnquiryDetailPage({
 
         <aside className="rounded-xl border border-border bg-card p-6">
           <h2 className="mb-4 font-semibold">{t("statusHeading")}</h2>
-          <EnquiryStatusControl id={enquiry.id} status={enquiry.status} />
+          <StatusChip status={enquiry.status} className="mb-5 text-sm" />
+          <EnquiryActions
+            id={enquiry.id}
+            name={enquiry.name}
+            status={enquiry.status}
+            presentation="detail"
+          />
         </aside>
       </div>
     </div>

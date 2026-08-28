@@ -12,6 +12,7 @@ import { HeaderNavLinks } from "./HeaderNavLinks";
 
 export const navItems = [
   { href: "/", key: "home" },
+  { href: "/about", key: "about" },
   { href: "/projects", key: "projects" },
   { href: "/properties", key: "properties" },
   { href: "/search", key: "search" },
@@ -38,10 +39,9 @@ export async function SiteHeader() {
 
         <nav
           aria-label={common("brandShort")}
-          className="ms-auto hidden items-center gap-8  lg:flex"
+          className="ms-auto hidden items-center gap-8 lg:flex"
         >
           <HeaderNavLinks links={links} />
-          
         </nav>
 
         <div className="ms-auto flex items-center gap-1 lg:ms-0 lg:gap-2">

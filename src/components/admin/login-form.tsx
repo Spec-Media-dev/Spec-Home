@@ -5,13 +5,13 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { Field } from "@/components/admin/field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { signIn } from "@/lib/actions/auth";
+import { z } from "@/lib/zod";
 
 const schema = z.object({
   email: z.email(),

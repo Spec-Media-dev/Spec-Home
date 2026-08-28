@@ -7,7 +7,7 @@ import { SearchField } from "@/components/site/search-field";
 import type { Locale } from "@/i18n/routing";
 import { searchAll } from "@/lib/data/search";
 import {
-  buildAlternates,
+  buildLocalizedMetadata,
   localizedPath,
   noindexFollow,
 } from "@/lib/seo/metadata";
@@ -18,13 +18,14 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "search" });
 
-  return {
+  return buildLocalizedMetadata({
+    locale: locale as Locale,
+    path: "/search",
     title: t("metaTitle"),
     description: t("metaDescription"),
-    alternates: buildAlternates("/search", locale as Locale),
     // Search result states are user queries, never landing pages.
     robots: noindexFollow,
-  };
+  });
 }
 
 function first(value: string | string[] | undefined): string {

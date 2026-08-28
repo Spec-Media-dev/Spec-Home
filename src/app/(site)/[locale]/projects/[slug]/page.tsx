@@ -16,7 +16,7 @@ import { formatArea, formatPriceRange } from "@/lib/format";
 import { localizeProject } from "@/lib/localized";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildProjectGraph } from "@/lib/seo/graphs";
-import { buildAlternates } from "@/lib/seo/metadata";
+import { buildLocalizedMetadata } from "@/lib/seo/metadata";
 import { storageUrl } from "@/lib/storage";
 
 export async function generateStaticParams() {
@@ -29,19 +29,20 @@ export async function generateMetadata({
 }: PageProps<"/[locale]/projects/[slug]">) {
   const { locale, slug } = await params;
   const project = await getProjectBySlug(slug);
-  if (!project) return {};
+  if (!project) notFound();
 
   const local = localizeProject(project, locale as Locale);
   const cover = storageUrl(project.cover_image_path);
 
-  return {
+  return buildLocalizedMetadata({
+    locale: locale as Locale,
+    path: `/projects/${slug}`,
     title: local.name,
     description:
       local.description?.slice(0, 180) ??
       `${local.name}${local.developer ? ` — ${local.developer}` : ""}`,
-    alternates: buildAlternates(`/projects/${slug}`, locale as Locale),
-    openGraph: cover ? { images: [{ url: cover }] } : undefined,
-  };
+    image: cover,
+  });
 }
 
 export default async function ProjectDetailPage({
@@ -221,7 +222,6 @@ export default async function ProjectDetailPage({
         <aside className="lg:sticky lg:top-28">
           <div className="rounded-xl border border-border bg-card p-6">
             <EnquiryForm
-              locale={locale}
               projectId={project.id}
               defaultMessage={common("enquire")}
             />

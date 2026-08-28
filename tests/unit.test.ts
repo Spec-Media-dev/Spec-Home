@@ -83,9 +83,16 @@ describe("enquiry validation", () => {
     );
   });
 
-  test("honeypot must stay empty", () => {
+  test("accepts a bounded honeypot value for the server-side bot trap", () => {
     assert.equal(
       enquirySchema.safeParse({ ...valid, company: "ACME" }).success,
+      true,
+    );
+  });
+
+  test("rejects unexpected client-controlled fields", () => {
+    assert.equal(
+      enquirySchema.safeParse({ ...valid, status: "closed" }).success,
       false,
     );
   });
@@ -722,6 +729,7 @@ describe("image signature detection", () => {
 import adminEn from "../messages/admin/en.json" with { type: "json" };
 import adminAr from "../messages/admin/ar.json" with { type: "json" };
 import { ADMIN_LOCALES, adminLocaleDirection, normalizeAdminLocale } from "../src/lib/admin-locale.ts";
+import { ADMIN_ERROR_MESSAGES } from "../src/components/admin/action-messages.ts";
 
 type Tree = { [key: string]: string | Tree };
 
@@ -764,6 +772,11 @@ describe("admin message catalogues", () => {
     ];
     for (const code of codes) {
       assert.ok(en.includes(`errors.${code}`), `missing errors.${code}`);
+      assert.equal(
+        typeof ADMIN_ERROR_MESSAGES[code as keyof typeof ADMIN_ERROR_MESSAGES],
+        "string",
+        `missing typed ADMIN_ERROR_MESSAGES.${code}`,
+      );
     }
   });
 
@@ -901,5 +914,124 @@ describe("price formatting", () => {
   test("null and undefined amounts render as nothing to format", () => {
     assert.equal(formatPrice(null, "AED", "en"), null);
     assert.equal(formatPrice(undefined, "AED", "ar"), null);
+  });
+});
+
+// ── Rate-limit keying ────────────────────────────────────────────────────
+
+import { clientIpFromHeaders } from "../src/lib/client-ip.ts";
+
+describe("client IP resolution", () => {
+  const from = (headers: Record<string, string>) =>
+    clientIpFromHeaders((name) => headers[name] ?? null);
+
+  test("prefers the header the edge sets itself", () => {
+    // Cloudflare strips any inbound copy of its own header, so when both are
+    // present the CDN's value is the one that has actually been verified.
+    assert.equal(
+      from({
+        "cf-connecting-ip": "203.0.113.7",
+        "x-forwarded-for": "198.51.100.1",
+      }),
+      "203.0.113.7",
+    );
+  });
+
+  test("takes the original client from a forwarded chain", () => {
+    // Left-most entry is the client as seen by the first proxy; the rest are
+    // the proxies themselves.
+    assert.equal(
+      from({ "x-forwarded-for": "198.51.100.1, 70.41.3.18, 150.172.238.178" }),
+      "198.51.100.1",
+    );
+  });
+
+  test("trims whitespace and falls through empty headers", () => {
+    assert.equal(from({ "x-forwarded-for": "   " , "x-real-ip": "192.0.2.9" }), "192.0.2.9");
+    assert.equal(from({ "x-forwarded-for": " 192.0.2.44 " }), "192.0.2.44");
+  });
+
+  test("unidentifiable callers share one bucket rather than escaping the limit", () => {
+    // The alternative — returning null and skipping the limiter — would make
+    // stripping a header a way to opt out of rate limiting entirely.
+    assert.equal(from({}), "unknown");
+  });
+});
+
+// ── Admin enquiry action boundary ────────────────────────────────────────
+
+describe("admin enquiry actions", () => {
+  const source = readFileSync(
+    join(import.meta.dirname, "..", "src", "lib", "actions", "enquiries.ts"),
+    "utf8",
+  );
+  const updateStart = source.indexOf("export async function updateEnquiryStatus");
+  const deleteStart = source.indexOf("export async function deleteEnquiry");
+  const updateSource = source.slice(updateStart, deleteStart);
+  const deleteSource = source.slice(deleteStart);
+
+  test("status updates authorize and validate before writing", () => {
+    assert.ok(updateStart >= 0 && deleteStart > updateStart);
+    assert.match(updateSource, /await requireAdminAction\(\)/);
+    assert.match(updateSource, /isUuid\(id\)/);
+    assert.match(updateSource, /ENQUIRY_STATUSES\.includes/);
+    assert.ok(
+      updateSource.indexOf("requireAdminAction") <
+        updateSource.indexOf('.from("enquiries")'),
+    );
+  });
+
+  test("deletion authorizes and validates before writing", () => {
+    assert.match(deleteSource, /await requireAdminAction\(\)/);
+    assert.match(deleteSource, /isUuid\(id\)/);
+    assert.ok(
+      deleteSource.indexOf("requireAdminAction") <
+        deleteSource.indexOf('.from("enquiries")'),
+    );
+  });
+});
+
+// ── No CAPTCHA provider integration ──────────────────────────────────────
+
+describe("enquiry protection carries no CAPTCHA integration", () => {
+  const root = join(import.meta.dirname, "..", "src");
+
+  function sourceFiles(): string[] {
+    return readdirSync(root, { recursive: true, encoding: "utf8" })
+      .filter((name) => /\.(ts|tsx)$/.test(name))
+      .map((name) => join(root, name));
+  }
+
+  test("there are source files to scan", () => {
+    assert.ok(sourceFiles().length > 0);
+  });
+
+  test("no Turnstile or other CAPTCHA provider is referenced in src/", () => {
+    // The product decision is that the public form is protected by honeypot +
+    // rate limit + strict validation, with no external anti-bot account. This
+    // fails if a provider is reintroduced, including as dormant optional code.
+    const providers =
+      /turnstile|hcaptcha|recaptcha|friendlycaptcha|friendly-challenge/i;
+
+    const offenders = sourceFiles()
+      .filter((file) => providers.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(root.length + 1));
+
+    assert.deepEqual(
+      offenders,
+      [],
+      `CAPTCHA provider code found — delete these files or references: ${offenders.join(", ")}`,
+    );
+  });
+
+  test("the enquiry schema accepts no verification token", () => {
+    const rejected = enquirySchema.safeParse({
+      name: "Aisha Khan",
+      email: "aisha@example.com",
+      message: "I would like more information about this property, please.",
+      turnstileToken: "anything",
+    });
+    // `.strict()` means an unknown key is refused outright, not stripped.
+    assert.equal(rejected.success, false);
   });
 });

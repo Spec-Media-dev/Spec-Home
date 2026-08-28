@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EnquiryActions } from "@/components/admin/enquiry-actions";
 import { AdminPageTitle } from "@/components/admin/page-title";
 import { StatusChip } from "@/components/admin/status-chip";
 import {
@@ -90,6 +91,9 @@ export default async function AdminEnquiriesPage({
                 <TableHead>{t("columnRelated")}</TableHead>
                 <TableHead>{t("columnStatus")}</TableHead>
                 <TableHead>{t("columnReceived")}</TableHead>
+                <TableHead className="w-12 text-end">
+                  <span className="sr-only">{t("columnActions")}</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -132,6 +136,13 @@ export default async function AdminEnquiriesPage({
                         year: "numeric",
                       },
                     )}
+                  </TableCell>
+                  <TableCell className="text-end">
+                    <EnquiryActions
+                      id={enquiry.id}
+                      name={enquiry.name}
+                      status={enquiry.status}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

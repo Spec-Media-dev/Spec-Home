@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/unit.test.ts",
     "test:integration": "node --env-file=.env.local --experimental-strip-types --import ./tests/register.mjs --test tests/integration.test.ts",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

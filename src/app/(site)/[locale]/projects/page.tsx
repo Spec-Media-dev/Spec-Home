@@ -7,7 +7,7 @@ import { getPublishedProjects } from "@/lib/data/projects";
 import { localizeProject } from "@/lib/localized";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildListingGraph } from "@/lib/seo/graphs";
-import { absoluteUrl, buildAlternates } from "@/lib/seo/metadata";
+import { absoluteUrl, buildLocalizedMetadata } from "@/lib/seo/metadata";
 
 export async function generateMetadata({
   params,
@@ -15,11 +15,12 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "projects" });
 
-  return {
+  return buildLocalizedMetadata({
+    locale: locale as Locale,
+    path: "/projects",
     title: t("metaTitle"),
     description: t("metaDescription"),
-    alternates: buildAlternates("/projects", locale as Locale),
-  };
+  });
 }
 
 export default async function ProjectsPage({
