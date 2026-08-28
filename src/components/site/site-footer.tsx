@@ -15,12 +15,18 @@ export async function SiteFooter() {
   const logoUrl = storageUrl(settings?.logo_path);
 
   const contactLinks = [
-    { href: contact.phoneHref, label: contact.phone, Icon: Phone },
-    {
-      href: contact.whatsappHref,
-      label: contact.whatsapp,
-      Icon: MessageCircle,
-    },
+    ...(contact.phone && contact.phoneHref
+      ? [{ href: contact.phoneHref, label: contact.phone, Icon: Phone }]
+      : []),
+    ...(contact.whatsapp && contact.whatsappHref
+      ? [
+          {
+            href: contact.whatsappHref,
+            label: contact.whatsapp,
+            Icon: MessageCircle,
+          },
+        ]
+      : []),
     { href: contact.emailHref, label: contact.email, Icon: Mail },
   ];
 

@@ -7,7 +7,11 @@ import { contact } from "@/config/contact";
 import { siteUrl } from "@/lib/env";
 import type { Locale } from "@/i18n/routing";
 import type { PropertyDetail, PropertyWithProject } from "@/lib/data/properties";
-import { localizeProject, localizeProperty } from "@/lib/localized";
+import {
+  localizeProject,
+  localizeProjectName,
+  localizeProperty,
+} from "@/lib/localized";
 import { absoluteUrl } from "@/lib/seo/metadata";
 import { storageUrl } from "@/lib/storage";
 import type { Project } from "@/lib/supabase/types";
@@ -23,7 +27,7 @@ const ORG_ID = `${siteUrl}/#organization`;
 const SITE_ID = `${siteUrl}/#website`;
 
 function organizationNode(): Node {
-  return {
+  const node: Node = {
     "@type": "RealEstateAgent",
     "@id": ORG_ID,
     name: brand.name,
@@ -31,7 +35,6 @@ function organizationNode(): Node {
     logo: `${siteUrl}${brand.logo.mark}`,
     image: `${siteUrl}${brand.hero.image}`,
     email: contact.email,
-    telephone: contact.phone,
     areaServed: { "@type": "City", name: "Dubai" },
     address: {
       "@type": "PostalAddress",
@@ -39,6 +42,8 @@ function organizationNode(): Node {
       addressCountry: contact.address.country,
     },
   };
+  if (contact.phone) node.telephone = contact.phone;
+  return node;
 }
 
 function websiteNode(locale: Locale): Node {
@@ -101,6 +106,31 @@ export async function buildHomeGraph(locale: Locale) {
     webPageNode(url, t("metaTitle"), t("metaDescription"), locale, {
       about: { "@id": ORG_ID },
     }),
+  ]);
+}
+
+export async function buildAboutGraph(locale: Locale) {
+  const t = await getTranslations({ locale, namespace: "about" });
+  const nav = await getTranslations({ locale, namespace: "nav" });
+  const url = absoluteUrl("/about", locale);
+
+  return graph([
+    organizationNode(),
+    websiteNode(locale),
+    {
+      "@type": "AboutPage",
+      "@id": `${url}#webpage`,
+      url,
+      name: t("metaTitle"),
+      description: t("metaDescription"),
+      inLanguage: locale,
+      isPartOf: { "@id": SITE_ID },
+      about: { "@id": ORG_ID },
+    },
+    breadcrumbNode(url, [
+      { name: nav("home"), url: absoluteUrl("/", locale) },
+      { name: nav("about"), url },
+    ]),
   ]);
 }
 
@@ -168,6 +198,7 @@ export async function buildProjectGraph(
     name: local.name,
     inLanguage: locale,
     provider: { "@id": ORG_ID },
+    about: { "@id": `${url}#development` },
   };
 
   if (local.description) listing.description = local.description;
@@ -187,12 +218,12 @@ export async function buildProjectGraph(
       priceCurrency: project.currency,
       ...(project.price_min !== null ? { lowPrice: project.price_min } : {}),
       ...(project.price_max !== null ? { highPrice: project.price_max } : {}),
-      offerCount: properties.length,
+      ...(properties.length > 0 ? { offerCount: properties.length } : {}),
     };
   }
 
   const place: Node = {
-    "@type": "ApartmentComplex",
+    "@type": "Place",
     "@id": `${url}#development`,
     name: local.name,
   };
@@ -239,20 +270,24 @@ export async function buildPropertyGraph(
     inLanguage: locale,
     provider: { "@id": ORG_ID },
     identifier: property.reference_code,
+    about: { "@id": `${url}#accommodation` },
   };
   if (local.description) listing.description = local.description;
   if (images.length > 0) listing.image = images;
 
   // Offer requires a genuine, visible price.
   if (property.price !== null) {
+    const availability =
+      property.status === "available"
+        ? "https://schema.org/InStock"
+        : property.status === "sold"
+          ? "https://schema.org/SoldOut"
+          : undefined;
     listing.offers = {
       "@type": "Offer",
       price: property.price,
       priceCurrency: property.currency,
-      availability:
-        property.status === "available"
-          ? "https://schema.org/InStock"
-          : "https://schema.org/OutOfStock",
+      ...(availability ? { availability } : {}),
     };
   }
 
@@ -261,6 +296,12 @@ export async function buildPropertyGraph(
     "@id": `${url}#accommodation`,
     name: local.title,
   };
+  const projectPlaceId = property.projects
+    ? `${absoluteUrl(`/projects/${property.projects.slug}`, locale)}#development`
+    : null;
+  if (projectPlaceId) {
+    accommodation.containedInPlace = { "@id": projectPlaceId };
+  }
   if (property.bedrooms !== null) {
     accommodation.numberOfBedrooms = property.bedrooms;
   }
@@ -280,10 +321,7 @@ export async function buildPropertyGraph(
     { name: nav("properties"), url: absoluteUrl("/properties", locale) },
   ];
   if (property.projects) {
-    const projectName = localizeProject(
-      property.projects as never,
-      locale,
-    ).name;
+    const projectName = localizeProjectName(property.projects, locale);
     crumbs.push({
       name: projectName,
       url: absoluteUrl(`/projects/${property.projects.slug}`, locale),
@@ -291,7 +329,7 @@ export async function buildPropertyGraph(
   }
   crumbs.push({ name: local.title, url });
 
-  return graph([
+  const nodes: Node[] = [
     organizationNode(),
     websiteNode(locale),
     webPageNode(url, local.title, local.description ?? local.title, locale, {
@@ -300,7 +338,18 @@ export async function buildPropertyGraph(
     listing,
     accommodation,
     breadcrumbNode(url, crumbs),
-  ]);
+  ];
+
+  if (property.projects && projectPlaceId) {
+    nodes.splice(nodes.length - 1, 0, {
+      "@type": "Place",
+      "@id": projectPlaceId,
+      name: localizeProjectName(property.projects, locale),
+      url: absoluteUrl(`/projects/${property.projects.slug}`, locale),
+    });
+  }
+
+  return graph(nodes);
 }
 
 export async function buildContactGraph(locale: Locale) {

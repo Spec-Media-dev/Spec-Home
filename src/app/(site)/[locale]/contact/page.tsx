@@ -7,7 +7,7 @@ import { contact } from "@/config/contact";
 import type { Locale } from "@/i18n/routing";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildContactGraph } from "@/lib/seo/graphs";
-import { buildAlternates } from "@/lib/seo/metadata";
+import { buildLocalizedMetadata } from "@/lib/seo/metadata";
 
 export async function generateMetadata({
   params,
@@ -15,11 +15,12 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "contact" });
 
-  return {
+  return buildLocalizedMetadata({
+    locale: locale as Locale,
+    path: "/contact",
     title: t("metaTitle"),
     description: t("metaDescription"),
-    alternates: buildAlternates("/contact", locale as Locale),
-  };
+  });
 }
 
 export default async function ContactPage({
@@ -33,18 +34,26 @@ export default async function ContactPage({
   const common = await getTranslations("common");
 
   const channels = [
-    {
-      Icon: Phone,
-      label: common("callUs"),
-      value: contact.phone,
-      href: contact.phoneHref,
-    },
-    {
-      Icon: MessageCircle,
-      label: common("whatsapp"),
-      value: contact.whatsapp,
-      href: contact.whatsappHref,
-    },
+    ...(contact.phone && contact.phoneHref
+      ? [
+          {
+            Icon: Phone,
+            label: common("callUs"),
+            value: contact.phone,
+            href: contact.phoneHref,
+          },
+        ]
+      : []),
+    ...(contact.whatsapp && contact.whatsappHref
+      ? [
+          {
+            Icon: MessageCircle,
+            label: common("whatsapp"),
+            value: contact.whatsapp,
+            href: contact.whatsappHref,
+          },
+        ]
+      : []),
     {
       Icon: Mail,
       label: common("email"),
@@ -97,7 +106,7 @@ export default async function ContactPage({
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
-          <EnquiryForm locale={locale} />
+          <EnquiryForm />
         </div>
       </section>
     </>

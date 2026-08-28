@@ -17,17 +17,18 @@ import {
 } from "@/lib/data/properties";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildHomeGraph } from "@/lib/seo/graphs";
-import { buildAlternates } from "@/lib/seo/metadata";
+import { buildLocalizedMetadata } from "@/lib/seo/metadata";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "home" });
 
-  return {
+  return buildLocalizedMetadata({
+    locale: locale as Locale,
+    path: "/",
     title: t("metaTitle"),
     description: t("metaDescription"),
-    alternates: buildAlternates("/", locale as Locale),
-  };
+  });
 }
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
@@ -171,6 +172,13 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
               {t("aboutBody")}
             </p>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/about" />}
+            >
+              {t("aboutLink")}
+            </Button>
             <dl className="grid gap-5 sm:grid-cols-3">
               {[
                 ["aboutPointExpertise", "aboutPointExpertiseBody"],
@@ -220,7 +228,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             </Button>
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
-            <EnquiryForm locale={locale} />
+            <EnquiryForm />
           </div>
         </div>
       </section>

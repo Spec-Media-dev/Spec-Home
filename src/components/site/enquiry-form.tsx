@@ -3,19 +3,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
+import { useRef, type FormEvent } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { Locale } from "@/i18n/routing";
 import { submitEnquiry } from "@/lib/actions/enquiries";
 import { ENQUIRY_MESSAGE_MAX } from "@/lib/validations/enquiry";
+import { z } from "@/lib/zod";
 
 type EnquiryFormProps = {
-  locale: Locale;
   projectId?: string;
   propertyId?: string;
   defaultMessage?: string;
@@ -27,6 +26,7 @@ export function EnquiryForm({
   defaultMessage,
 }: EnquiryFormProps) {
   const t = useTranslations("enquiry");
+  const submissionLocked = useRef(false);
 
   /**
    * Built inside the component so validation messages resolve through the
@@ -47,7 +47,7 @@ export function EnquiryForm({
       .trim()
       .min(10, t("errors.messageMin"))
       .max(ENQUIRY_MESSAGE_MAX, t("errors.messageMax")),
-    company: z.string().max(0).optional().or(z.literal("")),
+    company: z.string().max(200).optional().or(z.literal("")),
   });
 
   type FormValues = z.infer<typeof schema>;
@@ -84,16 +84,32 @@ export function EnquiryForm({
     // Field-level errors already render inline; only server-side outcomes
     // become toasts, so a user never sees the same problem twice.
     const key =
-      result.error === "rateLimited"
-        ? "errors.rateLimited"
-        : result.error === "verification"
-          ? "errors.verification"
-          : "errors.generic";
+      result.error === "rateLimited" ? "errors.rateLimited" : "errors.generic";
     toast.error(t(key));
   }
 
+  /**
+   * Double-submit guard. `isSubmitting` disables the button, but React may not
+   * have painted that state by the time a second click of a real double-click
+   * arrives. This ref flips synchronously inside the submit handler, so the
+   * second event is dropped before it can reach the Server Action.
+   */
+  async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    if (submissionLocked.current) {
+      event.preventDefault();
+      return;
+    }
+
+    submissionLocked.current = true;
+    try {
+      await handleSubmit(onSubmit)(event);
+    } finally {
+      submissionLocked.current = false;
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
+    <form onSubmit={handleFormSubmit} className="grid gap-4" noValidate>
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">{t("title")}</h2>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
@@ -169,8 +185,25 @@ export function EnquiryForm({
         ) : null}
       </div>
 
-      {/* Honeypot — hidden from users and assistive tech, tempting to bots. */}
-      <div aria-hidden className="hidden">
+      {/*
+       * Honeypot.
+       *
+       * Positioned off-screen rather than `display: none`. A bot that parses
+       * the DOM fills every text input it finds; one that checks computed
+       * styles skips anything explicitly hidden, so an off-screen field is the
+       * better trap. It is also the only variant a real browser can focus and
+       * type into, which is what makes the bot path testable end to end.
+       *
+       * `aria-hidden` keeps it out of the accessibility tree, `tabIndex={-1}`
+       * keeps it off the keyboard path, `autoComplete="off"` stops a password
+       * manager filling it for a real visitor, and absolute positioning keeps
+       * it out of layout flow entirely. The field is named `company` rather
+       * than anything resembling "honeypot" so its purpose is not advertised.
+       */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute h-px w-px overflow-hidden [clip-path:inset(50%)]"
+      >
         <label htmlFor="enquiry-company">Company</label>
         <input
           id="enquiry-company"

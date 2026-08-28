@@ -1,11 +1,12 @@
 "use client";
 
 import { SlidersHorizontal, X } from "lucide-react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -273,20 +274,20 @@ export function PropertyFilters({
           {common("apply")}
         </Button>
         {hasFilters || hasDraftFilters ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="lg"
-            className="lg:justify-self-start"
-            disabled={pending}
-            onClick={() => {
-              setDraft(toPropertyFilterState({}));
-              startTransition(() => router.push(basePath, { scroll: false }));
-            }}
+          <Link
+            href={basePath}
+            scroll={false}
+            aria-disabled={pending}
+            className={buttonVariants({
+              variant: "ghost",
+              size: "lg",
+              className: "lg:justify-self-start aria-disabled:pointer-events-none aria-disabled:opacity-50",
+            })}
+            onClick={() => setDraft(toPropertyFilterState({}))}
           >
             <X className="size-4" aria-hidden />
             {t("clearFilters")}
-          </Button>
+          </Link>
         ) : null}
       </form>
     </div>

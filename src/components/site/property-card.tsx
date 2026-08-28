@@ -7,7 +7,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import type { PropertyWithProject } from "@/lib/data/properties";
 import { formatArea, formatPrice } from "@/lib/format";
-import { localizeProject, localizeProperty } from "@/lib/localized";
+import { localizeProjectName, localizeProperty } from "@/lib/localized";
 import { storageUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ export async function PropertyCard({
   const price = formatPrice(property.price, property.currency, locale);
   const area = formatArea(property.size_sqft, locale);
   const projectName = property.projects
-    ? localizeProject(property.projects as never, locale).name
+    ? localizeProjectName(property.projects, locale)
     : null;
 
   const statusKey = property.status as "available" | "reserved" | "sold";
