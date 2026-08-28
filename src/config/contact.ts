@@ -4,10 +4,12 @@
  * `site_settings`, only this module changes.
  */
 export const contact = {
-  phone: "+971 4 000 0000",
-  phoneHref: "tel:+97140000000",
-  whatsapp: "+971 50 000 0000",
-  whatsappHref: "https://wa.me/971500000000",
+  // Real phone and WhatsApp details have not been supplied. Keep them absent
+  // rather than publishing placeholder values in the UI or structured data.
+  phone: null,
+  phoneHref: null,
+  whatsapp: null,
+  whatsappHref: null,
   email: "info@spechome.ae",
   emailHref: "mailto:info@spechome.ae",
   address: {

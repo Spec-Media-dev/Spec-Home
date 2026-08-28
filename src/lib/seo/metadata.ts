@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+
+import { brand } from "@/config/brand";
 import { siteUrl } from "@/lib/env";
 import { defaultLocale, locales, type Locale } from "@/i18n/routing";
 
@@ -14,6 +17,11 @@ export function localizedPath(path: string, locale: Locale): string {
 export function absoluteUrl(path: string, locale: Locale): string {
   const localized = localizedPath(path, locale);
   return `${siteUrl}${localized === "/" ? "" : localized}` || siteUrl;
+}
+
+export function absoluteSiteUrl(pathOrUrl: string): string {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  return `${siteUrl}/${pathOrUrl.replace(/^\/+/, "")}`;
 }
 
 export function buildAlternates(path: string, locale: Locale) {
@@ -34,3 +42,47 @@ export const noindexFollow = {
   index: false,
   follow: true,
 } as const;
+
+type LocalizedMetadataInput = {
+  locale: Locale;
+  path: string;
+  title: string;
+  description: string;
+  image?: string | null;
+  robots?: Metadata["robots"];
+};
+
+/** Consistent current-route metadata without hiding entity-specific copy. */
+export function buildLocalizedMetadata({
+  locale,
+  path,
+  title,
+  description,
+  image = brand.hero.image,
+  robots = { index: true, follow: true },
+}: LocalizedMetadataInput): Metadata {
+  const url = absoluteUrl(path, locale);
+  const imageUrl = image ? absoluteSiteUrl(image) : null;
+
+  return {
+    title,
+    description,
+    alternates: buildAlternates(path, locale),
+    robots,
+    openGraph: {
+      type: "website",
+      url,
+      title,
+      description,
+      siteName: brand.name,
+      locale: locale === "ar" ? "ar_AE" : "en_AE",
+      images: imageUrl ? [{ url: imageUrl }] : undefined,
+    },
+    twitter: {
+      card: imageUrl ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: imageUrl ? [imageUrl] : undefined,
+    },
+  };
+}

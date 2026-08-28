@@ -15,7 +15,7 @@ import { JsonLd } from "@/lib/seo/json-ld";
 import { buildListingGraph } from "@/lib/seo/graphs";
 import {
   absoluteUrl,
-  buildAlternates,
+  buildLocalizedMetadata,
   localizedPath,
   noindexFollow,
 } from "@/lib/seo/metadata";
@@ -32,12 +32,13 @@ export async function generateMetadata({
   // index while still letting crawlers follow through to detail pages.
   const isFiltered = Object.keys(query).length > 0;
 
-  return {
+  return buildLocalizedMetadata({
+    locale: locale as Locale,
+    path: "/properties",
     title: t("metaTitle"),
     description: t("metaDescription"),
-    alternates: buildAlternates("/properties", locale as Locale),
     robots: isFiltered ? noindexFollow : undefined,
-  };
+  });
 }
 
 function toNumber(value: string | undefined): number | undefined {
@@ -59,6 +60,7 @@ export default async function PropertiesPage({
   setRequestLocale(locale);
 
   const query = await searchParams;
+  const hasQueryState = Object.keys(query).length > 0;
   const t = await getTranslations("properties");
 
   const current = {
@@ -84,22 +86,24 @@ export default async function PropertiesPage({
     }),
   ]);
 
-  const graph = await buildListingGraph(
-    locale,
-    "/properties",
-    "properties",
-    result.items.map((property) => ({
-      name: localizeProperty(property, locale).title,
-      url: absoluteUrl(`/properties/${property.slug}`, locale),
-    })),
-  );
+  const graph = hasQueryState
+    ? null
+    : await buildListingGraph(
+        locale,
+        "/properties",
+        "properties",
+        result.items.map((property) => ({
+          name: localizeProperty(property, locale).title,
+          url: absoluteUrl(`/properties/${property.slug}`, locale),
+        })),
+      );
 
   const basePath = localizedPath("/properties", locale);
   const hasActiveFilters = Object.values(current).some(Boolean);
 
   return (
     <>
-      <JsonLd data={graph} />
+      {graph ? <JsonLd data={graph} /> : null}
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
       <section className="container-content space-y-8 py-10 pb-24 sm:py-14">

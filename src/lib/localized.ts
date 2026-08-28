@@ -29,12 +29,21 @@ export type LocalizedProject = {
   cashDiscount: string | null;
 };
 
+type ProjectIdentity = Pick<Project, "slug" | "name_en" | "name_ar">;
+
+export function localizeProjectName(
+  project: ProjectIdentity,
+  locale: Locale,
+): string {
+  return pick(locale, project.name_en, project.name_ar) ?? project.slug;
+}
+
 export function localizeProject(
   project: Project,
   locale: Locale,
 ): LocalizedProject {
   return {
-    name: pick(locale, project.name_en, project.name_ar) ?? project.slug,
+    name: localizeProjectName(project, locale),
     developer: pick(locale, project.developer_en, project.developer_ar) ?? "",
     location: pick(locale, project.location_en, project.location_ar),
     type: pick(locale, project.type_en, project.type_ar),

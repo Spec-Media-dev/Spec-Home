@@ -28,6 +28,7 @@ export function useAdminAction() {
     action: () => Promise<AnyActionResult>,
     successMessage: string,
     onSuccess?: () => void,
+    failureMessage?: string,
   ) {
     startTransition(async () => {
       const result = await action();
@@ -36,7 +37,7 @@ export function useAdminAction() {
         onSuccess?.();
         router.refresh();
       } else {
-        toast.error(errorMessage(result.error));
+        toast.error(failureMessage ?? errorMessage(result.error));
       }
     });
   }

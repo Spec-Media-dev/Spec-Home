@@ -26,8 +26,13 @@ describe("supabase invariants", { skip: !configured }, () => {
   let propertyId = "";
 
   before(async () => {
-    svc = createClient(url!, serviceKey!, { auth: { persistSession: false } });
-    anon = createClient(url!, anonKey!, { auth: { persistSession: false } });
+    const auth = {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    };
+    svc = createClient(url!, serviceKey!, { auth });
+    anon = createClient(url!, anonKey!, { auth });
 
     const { data: project, error: projectError } = await svc
       .from("projects")
@@ -87,6 +92,38 @@ describe("supabase invariants", { skip: !configured }, () => {
     const { data, error } = await anon.from("enquiries").select("id");
     assert.equal(error, null);
     assert.equal(data!.length, 0);
+  });
+
+  test("anon cannot update or delete enquiries", async () => {
+    const { data: created, error: createError } = await svc
+      .from("enquiries")
+      .insert({
+        name: "ITEST – Private Lead",
+        email: "itest-private@example.com",
+        message: "This controlled lead verifies anonymous mutation policies.",
+        status: "new",
+      })
+      .select("id, status")
+      .single();
+    assert.equal(createError, null);
+
+    try {
+      await anon
+        .from("enquiries")
+        .update({ status: "closed" })
+        .eq("id", created!.id);
+      await anon.from("enquiries").delete().eq("id", created!.id);
+
+      const { data: persisted, error: readError } = await svc
+        .from("enquiries")
+        .select("id, status")
+        .eq("id", created!.id)
+        .single();
+      assert.equal(readError, null);
+      assert.equal(persisted!.status, "new");
+    } finally {
+      await svc.from("enquiries").delete().eq("id", created!.id);
+    }
   });
 
   test("anon cannot mutate projects", async () => {
@@ -209,11 +246,63 @@ describe("supabase invariants", { skip: !configured }, () => {
   });
 
   test("anon cannot write site_settings", async () => {
-    const { error } = await anon
+    const { data: sessionData } = await anon.auth.getSession();
+    const { data: userData, error: userError } = await anon.auth.getUser();
+    assert.equal(sessionData.session, null);
+    assert.equal(userData.user, null);
+    assert.notEqual(userError, null);
+
+    const { data: original, error: originalError } = await svc
       .from("site_settings")
-      .update({ logo_path: "spoofed/logo.png" })
-      .eq("key", "main");
-    assert.notEqual(error, null, "only an admin may change the site logo");
+      .select("key, logo_path, updated_at")
+      .eq("key", "main")
+      .single();
+    assert.equal(originalError, null);
+
+    const attemptedPath = `itest/anonymous-${Date.now()}.png`;
+
+    try {
+      const attempt = await anon
+        .from("site_settings")
+        .update({ logo_path: attemptedPath }, { count: "exact" })
+        .eq("key", "main")
+        .select("key, logo_path, updated_at");
+
+      if (attempt.error === null) {
+        assert.equal(attempt.count, 0, "RLS must affect zero rows");
+        assert.equal(attempt.data.length, 0, "RLS must return zero rows");
+      }
+
+      const { data: persisted, error: persistedError } = await svc
+        .from("site_settings")
+        .select("key, logo_path, updated_at")
+        .eq("key", "main")
+        .single();
+      assert.equal(persistedError, null);
+      assert.equal(persisted!.logo_path, original!.logo_path);
+      assert.equal(persisted!.updated_at, original!.updated_at);
+    } finally {
+      // This runs only as a safety net for a future policy regression. It never
+      // touches the row in the expected zero-row RLS path.
+      const { data: current } = await svc
+        .from("site_settings")
+        .select("logo_path, updated_at")
+        .eq("key", "main")
+        .single();
+      if (
+        current &&
+        (current.logo_path !== original!.logo_path ||
+          current.updated_at !== original!.updated_at)
+      ) {
+        await svc
+          .from("site_settings")
+          .update({
+            logo_path: original!.logo_path,
+            updated_at: original!.updated_at,
+          })
+          .eq("key", "main");
+      }
+    }
   });
 
   test("a draft project may have no cover, a published one must have one", async () => {

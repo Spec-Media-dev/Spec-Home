@@ -22,32 +22,36 @@ export async function MobileContactBar() {
         >
           {t("enquire")}
         </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-12"
-          aria-label={t("callUs")}
-          nativeButton={false}
-          render={<a href={contact.phoneHref} />}
-        >
-          <Phone className="size-5" aria-hidden />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-12"
-          aria-label={t("whatsapp")}
-          nativeButton={false}
-          render={
-            <a
-              href={contact.whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
-          }
-        >
-          <MessageCircle className="size-5" aria-hidden />
-        </Button>
+        {contact.phoneHref ? (
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-12"
+            aria-label={t("callUs")}
+            nativeButton={false}
+            render={<a href={contact.phoneHref} />}
+          >
+            <Phone className="size-5" aria-hidden />
+          </Button>
+        ) : null}
+        {contact.whatsappHref ? (
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-12"
+            aria-label={t("whatsapp")}
+            nativeButton={false}
+            render={
+              <a
+                href={contact.whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            }
+          >
+            <MessageCircle className="size-5" aria-hidden />
+          </Button>
+        ) : null}
       </div>
     </div>
   );

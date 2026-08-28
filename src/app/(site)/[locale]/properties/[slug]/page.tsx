@@ -15,13 +15,13 @@ import {
 } from "@/lib/data/properties";
 import { formatArea, formatPrice } from "@/lib/format";
 import {
-  localizeProject,
+  localizeProjectName,
   localizeProperty,
   localizeSpec,
 } from "@/lib/localized";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildPropertyGraph } from "@/lib/seo/graphs";
-import { buildAlternates } from "@/lib/seo/metadata";
+import { buildLocalizedMetadata } from "@/lib/seo/metadata";
 import { storageUrl } from "@/lib/storage";
 
 export async function generateStaticParams() {
@@ -34,7 +34,7 @@ export async function generateMetadata({
 }: PageProps<"/[locale]/properties/[slug]">) {
   const { locale, slug } = await params;
   const property = await getPropertyBySlug(slug);
-  if (!property) return {};
+  if (!property) notFound();
 
   const local = localizeProperty(property, locale as Locale);
   const cover = storageUrl(property.property_images[0]?.image_url);
@@ -44,14 +44,15 @@ export async function generateMetadata({
     locale as Locale,
   );
 
-  return {
+  return buildLocalizedMetadata({
+    locale: locale as Locale,
+    path: `/properties/${slug}`,
     title: `${local.title} — ${property.reference_code}`,
     description:
       local.description?.slice(0, 180) ??
       [local.title, local.propertyType, price].filter(Boolean).join(" · "),
-    alternates: buildAlternates(`/properties/${slug}`, locale as Locale),
-    openGraph: cover ? { images: [{ url: cover }] } : undefined,
-  };
+    image: cover,
+  });
 }
 
 export default async function PropertyDetailPage({
@@ -74,8 +75,8 @@ export default async function PropertyDetailPage({
   ]);
 
   const local = localizeProperty(property, locale);
-  const project = property.projects
-    ? localizeProject(property.projects as never, locale)
+  const projectName = property.projects
+    ? localizeProjectName(property.projects, locale)
     : null;
   const price = formatPrice(property.price, property.currency, locale);
   const area = formatArea(property.size_sqft, locale);
@@ -134,10 +135,10 @@ export default async function PropertyDetailPage({
           items={[
             { label: nav("home"), href: "/" },
             { label: nav("properties"), href: "/properties" },
-            ...(property.projects && project
+            ...(property.projects && projectName
               ? [
                   {
-                    label: project.name,
+                    label: projectName,
                     href: `/projects/${property.projects.slug}`,
                   },
                 ]
@@ -162,14 +163,14 @@ export default async function PropertyDetailPage({
             <h1 className="text-2xl font-semibold tracking-tight sm:text-4xl">
               {local.title}
             </h1>
-            {property.projects && project ? (
+            {property.projects && projectName ? (
               <p className="text-sm text-muted-foreground">
                 {t("partOfProject")}{" "}
                 <Link
                   href={`/projects/${property.projects.slug}`}
                   className="font-medium text-foreground underline-offset-4 hover:underline"
                 >
-                  {project.name}
+                  {projectName}
                 </Link>
               </p>
             ) : null}
@@ -240,7 +241,6 @@ export default async function PropertyDetailPage({
           <aside className="lg:sticky lg:top-28">
             <div className="rounded-xl border border-border bg-card p-6">
               <EnquiryForm
-                locale={locale}
                 propertyId={property.id}
                 projectId={property.project_id}
               />

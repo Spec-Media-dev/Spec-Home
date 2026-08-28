@@ -15,6 +15,7 @@ export const ADMIN_ERROR_MESSAGES: Record<ActionErrorCode, string> = {
     "This project still has properties. Move or delete them first.",
   imageLimit: "A property can have at most 4 images.",
   imageRequired: "Add at least one image before publishing.",
+  coverRequired: "Add a project cover image before publishing.",
   invalidFile: "Unsupported file. Use a JPEG, PNG or WebP within the size limit.",
   fileTooLarge: "That image is larger than 5 MB.",
   uploadFailed: "The upload failed. Please try again.",

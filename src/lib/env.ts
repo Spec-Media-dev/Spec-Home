@@ -1,4 +1,9 @@
-import { z } from "zod";
+// The configured entry point, not "zod" directly: `publicEnv` below is
+// imported by `@/lib/supabase/browser`, which the realtime bridge mounted in
+// the root site layout pulls into every public page's client bundle, so this
+// schema is one of the places that must not risk running before Zod's
+// eval-based JIT probe is disabled. See src/lib/zod.ts.
+import { z } from "@/lib/zod";
 
 /**
  * Supabase's dashboard exposes several URLs; the REST one carries a
