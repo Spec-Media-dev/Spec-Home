@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactLenis } from "@studio-freight/react-lenis";
+import { ReactLenis } from "lenis/react";
 import React, { useEffect, useState, memo } from "react";
 
 function SmoothScrollingComponent({ children }: { children: React.ReactNode }) {
@@ -34,7 +34,7 @@ function SmoothScrollingComponent({ children }: { children: React.ReactNode }) {
         infinite: false,
       }}
     >
-      {children as any}
+      {children}
     </ReactLenis>
   );
 }
