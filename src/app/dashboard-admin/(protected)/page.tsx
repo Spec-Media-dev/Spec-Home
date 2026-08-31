@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -14,60 +14,32 @@ import {
   Plus,
   ArrowUpRight,
   TrendingUp,
-  ExternalLink,
-  CheckCircle2,
-  Clock,
-  Sparkles,
   Database,
-  Eye,
-  ShieldCheck,
-  PhoneCall,
   Mail,
-  Filter,
+  Activity,
+  RefreshCw,
 } from "lucide-react";
-import {
-  AdminStore,
-  AdminProfile,
-  Enquiry,
-  Project,
-  Property,
-  PropertyImage,
-  PropertySpec,
-} from "@/lib/adminStore";
+import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
 
 export default function AdminDashboardOverviewPage() {
-  const [admins, setAdmins] = useState<AdminProfile[]>([]);
-  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [images, setImages] = useState<PropertyImage[]>([]);
-  const [specs, setSpecs] = useState<PropertySpec[]>([]);
-  const [mounted, setMounted] = useState(false);
+  const {
+    projects,
+    properties,
+    images,
+    specs,
+    admins,
+    enquiries,
+    siteSettings,
+    loading,
+    isConnected,
+    lastSync,
+    refreshData,
+    updateEnquiryStatus,
+  } = useRealtimeDashboard();
 
-  useEffect(() => {
-    setMounted(true);
-    refreshData();
-  }, []);
-
-  const refreshData = () => {
-    setAdmins(AdminStore.getAdmins());
-    setEnquiries(AdminStore.getEnquiries());
-    setProjects(AdminStore.getProjects());
-    setProperties(AdminStore.getProperties());
-    setImages(AdminStore.getPropertyImages());
-    setSpecs(AdminStore.getPropertySpecs());
-  };
-
-  const handleStatusChange = (id: string, newStatus: Enquiry["status"]) => {
-    AdminStore.updateEnquiryStatus(id, newStatus);
-    refreshData();
-  };
-
-  if (!mounted) return null;
-
-  // Calculate portfolio value
+  // Calculate live portfolio value from database
   const totalPortfolioValue = properties.reduce(
-    (acc, item) => acc + (item.numericPrice || 0),
+    (acc, item) => acc + (Number(item.price) || 0),
     0
   );
 
@@ -84,105 +56,99 @@ export default function AdminDashboardOverviewPage() {
       name: "admin_profiles",
       title: "Admin Profiles",
       path: "/dashboard-admin/admin-profiles",
-      addPath: "/dashboard-admin/admin-profiles",
       count: admins.length,
       icon: Users,
       description: "Manage administrators, managers, access roles & security permissions.",
-      accent: "from-blue-500/20 to-indigo-500/10",
       iconColor: "text-blue-400",
     },
     {
       name: "enquiries",
       title: "Client Enquiries",
       path: "/dashboard-admin/enquiries",
-      addPath: "/dashboard-admin/enquiries",
       count: enquiries.length,
-      badge: `${enquiries.filter((e) => e.status === "New").length} New`,
+      badge: `${enquiries.filter((e) => e.status === "new").length} New`,
       icon: MessageSquareText,
       description: "Inbound VIP buyer leads, viewing schedules, and consultation requests.",
-      accent: "from-amber-500/20 to-orange-500/10",
       iconColor: "text-amber-400",
     },
     {
       name: "projects",
       title: "Master Projects",
       path: "/dashboard-admin/projects",
-      addPath: "/dashboard-admin/projects",
       count: projects.length,
       icon: FolderKanban,
       description: "Signature master developments, construction statuses & developer portfolios.",
-      accent: "from-emerald-500/20 to-teal-500/10",
       iconColor: "text-emerald-400",
     },
     {
       name: "properties",
       title: "Property Listings",
       path: "/dashboard-admin/properties",
-      addPath: "/dashboard-admin/properties",
       count: properties.length,
       icon: Building2,
       description: "Ultra-luxury mansions, villas, penthouses, pricing and availability.",
-      accent: "from-yellow-500/20 to-amber-500/10",
       iconColor: "text-yellow-400",
     },
     {
       name: "property_images",
       title: "Image Galleries",
       path: "/dashboard-admin/property-images",
-      addPath: "/dashboard-admin/property-images",
       count: images.length,
       icon: ImageIcon,
       description: "High-resolution architectural photography, category tags & cover images.",
-      accent: "from-purple-500/20 to-pink-500/10",
       iconColor: "text-purple-400",
     },
     {
       name: "property_specs",
       title: "Property Specs",
       path: "/dashboard-admin/property-specs",
-      addPath: "/dashboard-admin/property-specs",
       count: specs.length,
       icon: SlidersHorizontal,
       description: "Luxury architectural specifications, smart home features and amenities.",
-      accent: "from-cyan-500/20 to-blue-500/10",
       iconColor: "text-cyan-400",
     },
     {
       name: "site_settings",
       title: "Site Settings",
       path: "/dashboard-admin/site-settings",
-      addPath: "/dashboard-admin/site-settings",
-      count: "Active",
+      count: siteSettings ? "Active" : "Ready",
       icon: Settings2,
       description: "Global brand settings, WhatsApp contact, SEO metadata and currency.",
-      accent: "from-rose-500/20 to-red-500/10",
       iconColor: "text-rose-400",
     },
   ];
 
   return (
     <div className="space-y-8">
-      {/* Top Welcome & Quick Actions */}
+      {/* Top Welcome & Realtime Sync Indicator */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-[#222222]">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-mono font-semibold text-accent uppercase tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
               SPEC Core Admin v2.4
             </span>
-            <span className="text-xs text-neutral-400 font-mono">
-              Database Sync: Online
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {isConnected ? "Realtime WebSocket: Connected" : "Syncing..."}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
             Executive Control Center
           </h1>
           <p className="text-sm text-neutral-400 mt-1">
-            Full management oversight across all 7 platform database entities.
+            Full real-time management oversight across all 7 platform database entities.
           </p>
         </div>
 
         {/* Quick Action Buttons */}
         <div className="flex items-center flex-wrap gap-2.5">
+          <button
+            onClick={refreshData}
+            title="Force re-sync"
+            className="p-2 rounded-lg bg-[#1a1a1a] hover:bg-[#252525] text-neutral-300 border border-[#333333] transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-accent" : ""} />
+          </button>
           <Link
             href="/dashboard-admin/properties"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-[#e5c158] transition-colors shadow-[0_0_15px_rgba(212,175,55,0.2)]"
@@ -220,7 +186,7 @@ export default function AdminDashboardOverviewPage() {
               <Building2 size={20} />
             </div>
             <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-              <TrendingUp size={11} /> +18.4%
+              <TrendingUp size={11} /> Live DB
             </span>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight mb-0.5">
@@ -244,7 +210,7 @@ export default function AdminDashboardOverviewPage() {
               <FolderKanban size={20} />
             </div>
             <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              {projects.reduce((acc, p) => acc + p.units, 0)} Units
+              {projects.filter(p => p.is_published).length} Published
             </span>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight mb-0.5">
@@ -252,7 +218,7 @@ export default function AdminDashboardOverviewPage() {
           </div>
           <div className="text-xs text-neutral-400">Developments Under Care</div>
           <div className="text-[11px] text-neutral-500 mt-2 font-mono">
-            Prime Dubai waterfront & golf
+            Prime Dubai developments
           </div>
         </motion.div>
 
@@ -268,15 +234,15 @@ export default function AdminDashboardOverviewPage() {
               <MessageSquareText size={20} />
             </div>
             <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
-              {enquiries.filter((e) => e.status === "New").length} Action Needed
+              {enquiries.filter((e) => e.status === "new").length} New Leads
             </span>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight mb-0.5">
-            {enquiries.length} VIP Leads
+            {enquiries.length} Inbound Leads
           </div>
-          <div className="text-xs text-neutral-400">Inbound Client Requests</div>
+          <div className="text-xs text-neutral-400">Real-Time Inquiries</div>
           <div className="text-[11px] text-neutral-500 mt-2 font-mono">
-            Direct viewing & investment leads
+            Direct viewing & VIP leads
           </div>
         </motion.div>
 
@@ -296,16 +262,16 @@ export default function AdminDashboardOverviewPage() {
             </span>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight mb-0.5">
-            {images.length} Curated Photos
+            {images.length} Curated Media
           </div>
-          <div className="text-xs text-neutral-400">Digital Media Assets</div>
+          <div className="text-xs text-neutral-400">Digital Assets in Bucket</div>
           <div className="text-[11px] text-neutral-500 mt-2 font-mono">
-            4K UHD architectural assets
+            Architectural assets
           </div>
         </motion.div>
       </div>
 
-      {/* DATABASE TABLES HUB (Matching User's Screenshot) */}
+      {/* DATABASE TABLES HUB */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -315,7 +281,7 @@ export default function AdminDashboardOverviewPage() {
             </h2>
           </div>
           <span className="text-xs text-neutral-400 font-mono">
-            7 Entities • All schemas synchronized
+            7 Tables • Realtime WebSocket Stream
           </span>
         </div>
 
@@ -377,7 +343,7 @@ export default function AdminDashboardOverviewPage() {
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#222222]">
             <div className="flex items-center gap-2">
               <MessageSquareText size={18} className="text-amber-400" />
-              <h3 className="font-bold text-white text-base">Recent Enquiries & Leads</h3>
+              <h3 className="font-bold text-white text-base">Live Inbound Enquiries</h3>
             </div>
             <Link
               href="/dashboard-admin/enquiries"
@@ -398,26 +364,26 @@ export default function AdminDashboardOverviewPage() {
                     <span className="font-semibold text-sm text-white">{enq.name}</span>
                     <span
                       className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${
-                        enq.priority === "High"
-                          ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                        enq.status === "new"
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : enq.status === "in_progress"
+                          ? "bg-amber-500/10 text-amber-400"
                           : "bg-blue-500/10 text-blue-400"
                       }`}
                     >
-                      {enq.type}
+                      {enq.status.toUpperCase()}
                     </span>
                     <span className="text-[11px] text-neutral-400 font-mono">
-                      {enq.date}
+                      {new Date(enq.created_at).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="text-xs text-neutral-400 flex items-center gap-3">
-                    <span className="text-neutral-300 font-medium">
-                      {enq.propertyTitle || enq.projectTitle || "General Advisory"}
-                    </span>
+                    <span className="font-mono">{enq.phone}</span>
                     <span>•</span>
                     <span className="font-mono">{enq.email}</span>
                   </div>
                   <p className="text-xs text-neutral-400 italic line-clamp-1">
-                    "{enq.message}"
+                    &quot;{enq.message}&quot;
                   </p>
                 </div>
 
@@ -426,14 +392,15 @@ export default function AdminDashboardOverviewPage() {
                   <select
                     value={enq.status}
                     onChange={(e) =>
-                      handleStatusChange(enq.id, e.target.value as Enquiry["status"])
+                      updateEnquiryStatus(enq.id, e.target.value as any)
                     }
                     className="bg-[#121212] border border-[#333333] text-xs text-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-accent cursor-pointer"
                   >
-                    <option value="New">🟢 New</option>
-                    <option value="In Progress">🟡 In Progress</option>
-                    <option value="Contacted">🔵 Contacted</option>
-                    <option value="Closed">⚪ Closed</option>
+                    <option value="new">🟢 New</option>
+                    <option value="in_progress">🟡 In Progress</option>
+                    <option value="contacted">🔵 Contacted</option>
+                    <option value="closed">⚪ Closed</option>
+                    <option value="spam">🔴 Spam</option>
                   </select>
 
                   <a
@@ -446,6 +413,12 @@ export default function AdminDashboardOverviewPage() {
                 </div>
               </div>
             ))}
+
+            {enquiries.length === 0 && (
+              <div className="py-8 text-center text-xs text-neutral-500">
+                No client inquiries in the database yet.
+              </div>
+            )}
           </div>
         </div>
 
@@ -454,7 +427,7 @@ export default function AdminDashboardOverviewPage() {
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#222222]">
             <div className="flex items-center gap-2">
               <Building2 size={18} className="text-accent" />
-              <h3 className="font-bold text-white text-base">Top Listings</h3>
+              <h3 className="font-bold text-white text-base">Top Database Assets</h3>
             </div>
             <Link
               href="/dashboard-admin/properties"
@@ -472,23 +445,23 @@ export default function AdminDashboardOverviewPage() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={prop.coverImage}
-                  alt={prop.title}
+                  src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&q=80"
+                  alt={prop.title_en}
                   className="w-14 h-14 rounded-lg object-cover border border-[#2f2f2f] shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold text-white truncate group-hover:text-accent transition-colors">
-                    {prop.title}
+                    {prop.title_en}
                   </div>
                   <div className="text-[11px] text-neutral-400 truncate">
-                    {prop.location}
+                    {prop.property_type_en}
                   </div>
                   <div className="text-xs font-bold text-accent mt-1">
-                    {prop.price}
+                    AED {Number(prop.price).toLocaleString()}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono uppercase">
                     {prop.status}
                   </span>
                 </div>

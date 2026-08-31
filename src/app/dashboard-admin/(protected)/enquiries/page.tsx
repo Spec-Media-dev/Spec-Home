@@ -1,99 +1,81 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   MessageSquareText,
   Search,
   Plus,
   Mail,
-  Phone,
   Trash2,
   Eye,
-  CheckCircle2,
-  Clock,
   Send,
   X,
-  Sparkles,
   Building,
-  User,
+  RefreshCw,
 } from "lucide-react";
-import { AdminStore, Enquiry } from "@/lib/adminStore";
+import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { EnquiryRow } from "@/lib/supabase/types";
 
 export default function EnquiriesPage() {
-  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const {
+    enquiries,
+    loading,
+    isConnected,
+    updateEnquiryStatus,
+    deleteEnquiry,
+    refreshData,
+  } = useRealtimeDashboard();
+
   const [activeTab, setActiveTab] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
+  const [selectedEnquiry, setSelectedEnquiry] = useState<EnquiryRow | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // New enquiry form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("+971 ");
-  const [propertyTitle, setPropertyTitle] = useState("");
-  const [type, setType] = useState<Enquiry["type"]>("Property Viewing");
   const [message, setMessage] = useState("");
-  const [priority, setPriority] = useState<Enquiry["priority"]>("High");
 
-  useEffect(() => {
-    loadEnquiries();
-  }, []);
+  const supabase = getSupabaseBrowserClient();
 
-  const loadEnquiries = () => {
-    setEnquiries(AdminStore.getEnquiries());
-  };
-
-  const handleStatusChange = (id: string, newStatus: Enquiry["status"]) => {
-    AdminStore.updateEnquiryStatus(id, newStatus);
-    loadEnquiries();
-    if (selectedEnquiry && selectedEnquiry.id === id) {
-      setSelectedEnquiry({ ...selectedEnquiry, status: newStatus });
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Delete this client enquiry?")) {
-      AdminStore.deleteEnquiry(id);
-      loadEnquiries();
-      if (selectedEnquiry?.id === id) setSelectedEnquiry(null);
-    }
-  };
-
-  const handleAddManualLead = (e: React.FormEvent) => {
+  const handleAddManualLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) return;
 
-    AdminStore.addEnquiry({
-      name,
-      email,
-      phone,
-      propertyTitle: propertyTitle || undefined,
-      type,
-      message: message || "Direct client enquiry registered via admin portal.",
-      status: "New",
-      priority,
-    });
+    try {
+      await supabase.from("enquiries").insert({
+        name,
+        email,
+        phone,
+        message: message || "Direct client enquiry registered via admin portal.",
+        status: "new",
+      });
+    } catch (err) {
+      console.error("Failed to insert lead:", err);
+    }
 
     setIsAddModalOpen(false);
     setName("");
     setEmail("");
     setMessage("");
-    loadEnquiries();
+    refreshData();
   };
 
   const filteredEnquiries = enquiries.filter((enq) => {
-    const matchesTab = activeTab === "All" || enq.status === activeTab;
+    const matchesTab = activeTab === "All" || enq.status === activeTab.toLowerCase();
     const matchesSearch =
       enq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       enq.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (enq.propertyTitle && enq.propertyTitle.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (enq.projectTitle && enq.projectTitle.toLowerCase().includes(searchTerm.toLowerCase()));
+      enq.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      enq.message.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
   const countByStatus = (status: string) => {
     if (status === "All") return enquiries.length;
-    return enquiries.filter((e) => e.status === status).length;
+    return enquiries.filter((e) => e.status === status.toLowerCase()).length;
   };
 
   return (
@@ -103,49 +85,65 @@ export default function EnquiriesPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-mono text-xs text-accent font-semibold">table: enquiries</span>
+            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.2 rounded border border-emerald-500/20">
+              {isConnected ? "● Realtime Live" : "Syncing..."}
+            </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <MessageSquareText className="text-accent" size={24} />
             Client Enquiries & VIP Inbound Leads
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
-            Track inquiries, viewing requests, VIP buyer portfolios, and direct advisory leads.
+            Track inquiries, viewing requests, and direct VIP buyer communications live from the database.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>Record New Lead</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refreshData}
+            title="Refresh from DB"
+            className="p-2.5 bg-[#1c1c1c] text-neutral-300 hover:text-white rounded-lg border border-[#2f2f2f] transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-accent" : ""} />
+          </button>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto"
+          >
+            <Plus size={16} />
+            <span>Record New Lead</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs & Search */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[#141414] p-3 rounded-xl border border-[#262626]">
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          {["All", "New", "In Progress", "Contacted", "Closed"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                activeTab === tab
-                  ? "bg-accent text-black font-semibold shadow-sm"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <span>{tab}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  activeTab === tab ? "bg-black/20 text-black" : "bg-neutral-800 text-neutral-400"
+          {["All", "New", "In_Progress", "Contacted", "Closed"].map((tab) => {
+            const displayLabel = tab.replace("_", " ");
+            const isSelected = activeTab.toLowerCase() === tab.toLowerCase();
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-accent text-black font-semibold shadow-sm"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
                 }`}
               >
-                {countByStatus(tab)}
-              </span>
-            </button>
-          ))}
+                <span>{displayLabel}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isSelected ? "bg-black/20 text-black" : "bg-neutral-800 text-neutral-400"
+                  }`}
+                >
+                  {countByStatus(tab)}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Search */}
@@ -155,7 +153,7 @@ export default function EnquiriesPage() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search leads by name, email..."
+            placeholder="Search leads by name, email, phone..."
             className="w-full bg-[#1c1c1c] border border-[#2f2f2f] rounded-lg pl-9 pr-4 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-accent"
           />
         </div>
@@ -168,10 +166,9 @@ export default function EnquiriesPage() {
             <thead className="bg-[#191919] text-[11px] uppercase font-mono text-neutral-400 border-b border-[#262626]">
               <tr>
                 <th className="px-5 py-3.5">Client Lead</th>
-                <th className="px-5 py-3.5">Property / Project</th>
-                <th className="px-5 py-3.5">Request Type</th>
+                <th className="px-5 py-3.5">Message / Inquiry</th>
                 <th className="px-5 py-3.5">Status</th>
-                <th className="px-5 py-3.5">Received</th>
+                <th className="px-5 py-3.5">Received Date</th>
                 <th className="px-5 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
@@ -187,8 +184,8 @@ export default function EnquiriesPage() {
                     <div>
                       <div className="font-semibold text-white group-hover:text-accent transition-colors flex items-center gap-2">
                         {enq.name}
-                        {enq.priority === "High" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                        {enq.status === "new" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         )}
                       </div>
                       <div className="text-xs text-neutral-400 font-mono mt-0.5">{enq.email}</div>
@@ -196,18 +193,11 @@ export default function EnquiriesPage() {
                     </div>
                   </td>
 
-                  {/* Asset of Interest */}
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <span className="text-neutral-200 font-medium">
-                      {enq.propertyTitle || enq.projectTitle || "General Portfolio"}
-                    </span>
-                  </td>
-
-                  {/* Type */}
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <span className="text-xs font-mono bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-md border border-neutral-700">
-                      {enq.type}
-                    </span>
+                  {/* Message */}
+                  <td className="px-5 py-4 max-w-xs">
+                    <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed">
+                      {enq.message}
+                    </p>
                   </td>
 
                   {/* Status Dropdown */}
@@ -218,20 +208,21 @@ export default function EnquiriesPage() {
                     <select
                       value={enq.status}
                       onChange={(e) =>
-                        handleStatusChange(enq.id, e.target.value as Enquiry["status"])
+                        updateEnquiryStatus(enq.id, e.target.value as any)
                       }
                       className="bg-[#1c1c1c] border border-[#333333] text-xs text-neutral-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-accent cursor-pointer"
                     >
-                      <option value="New">🟢 New</option>
-                      <option value="In Progress">🟡 In Progress</option>
-                      <option value="Contacted">🔵 Contacted</option>
-                      <option value="Closed">⚪ Closed</option>
+                      <option value="new">🟢 New</option>
+                      <option value="in_progress">🟡 In Progress</option>
+                      <option value="contacted">🔵 Contacted</option>
+                      <option value="closed">⚪ Closed</option>
+                      <option value="spam">🔴 Spam</option>
                     </select>
                   </td>
 
                   {/* Received */}
                   <td className="px-5 py-4 whitespace-nowrap text-xs text-neutral-400 font-mono">
-                    {enq.date}
+                    {new Date(enq.created_at).toLocaleString()}
                   </td>
 
                   {/* Actions */}
@@ -255,7 +246,11 @@ export default function EnquiriesPage() {
                         <Mail size={15} />
                       </a>
                       <button
-                        onClick={() => handleDelete(enq.id)}
+                        onClick={() => {
+                          if (confirm("Delete this client enquiry from the database?")) {
+                            deleteEnquiry(enq.id);
+                          }
+                        }}
                         className="p-1.5 rounded-lg hover:bg-red-500/10 hover:text-red-400 transition-colors"
                         title="Delete Enquiry"
                       >
@@ -268,8 +263,8 @@ export default function EnquiriesPage() {
 
               {filteredEnquiries.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">
-                    No enquiries found.
+                  <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
+                    No inquiries match your filter.
                   </td>
                 </tr>
               )}
@@ -302,27 +297,17 @@ export default function EnquiriesPage() {
                   <p className="text-xs text-neutral-400 font-mono mt-0.5">{selectedEnquiry.email}</p>
                   <p className="text-xs text-neutral-400 font-mono">{selectedEnquiry.phone}</p>
                 </div>
-                <span className="text-xs font-mono bg-accent/15 text-accent px-2.5 py-1 rounded-md border border-accent/30">
-                  {selectedEnquiry.type}
+                <span className="text-xs font-mono bg-accent/15 text-accent px-2.5 py-1 rounded-md border border-accent/30 uppercase">
+                  {selectedEnquiry.status}
                 </span>
-              </div>
-
-              <div>
-                <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider block mb-1">
-                  Property or Project of Interest
-                </span>
-                <div className="p-3 rounded-lg bg-[#1a1a1a] border border-[#2c2c2c] text-white font-medium flex items-center gap-2">
-                  <Building size={15} className="text-accent" />
-                  {selectedEnquiry.propertyTitle || selectedEnquiry.projectTitle || "General Portfolio"}
-                </div>
               </div>
 
               <div>
                 <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider block mb-1">
                   Client Message
                 </span>
-                <div className="p-3.5 rounded-lg bg-[#1a1a1a] border border-[#2c2c2c] text-neutral-200 leading-relaxed font-sans italic">
-                  "{selectedEnquiry.message}"
+                <div className="p-3.5 rounded-lg bg-[#1a1a1a] border border-[#2c2c2c] text-neutral-200 leading-relaxed font-sans">
+                  &quot;{selectedEnquiry.message}&quot;
                 </div>
               </div>
 
@@ -331,21 +316,23 @@ export default function EnquiriesPage() {
                   <span className="text-[11px] font-mono text-neutral-500 block mb-1">Status</span>
                   <select
                     value={selectedEnquiry.status}
-                    onChange={(e) =>
-                      handleStatusChange(selectedEnquiry.id, e.target.value as Enquiry["status"])
-                    }
+                    onChange={(e) => {
+                      updateEnquiryStatus(selectedEnquiry.id, e.target.value as any);
+                      setSelectedEnquiry({ ...selectedEnquiry, status: e.target.value as any });
+                    }}
                     className="w-full bg-[#1c1c1c] border border-[#333333] text-xs text-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:border-accent cursor-pointer"
                   >
-                    <option value="New">🟢 New</option>
-                    <option value="In Progress">🟡 In Progress</option>
-                    <option value="Contacted">🔵 Contacted</option>
-                    <option value="Closed">⚪ Closed</option>
+                    <option value="new">🟢 New</option>
+                    <option value="in_progress">🟡 In Progress</option>
+                    <option value="contacted">🔵 Contacted</option>
+                    <option value="closed">⚪ Closed</option>
+                    <option value="spam">🔴 Spam</option>
                   </select>
                 </div>
                 <div>
                   <span className="text-[11px] font-mono text-neutral-500 block mb-1">Received Time</span>
                   <div className="p-2 rounded-lg bg-[#1c1c1c] border border-[#333333] text-neutral-300 font-mono text-xs">
-                    {selectedEnquiry.date}
+                    {new Date(selectedEnquiry.created_at).toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -412,45 +399,6 @@ export default function EnquiriesPage() {
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Request Type</label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value as Enquiry["type"])}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="Property Viewing">Property Viewing</option>
-                    <option value="VIP Request">VIP Request</option>
-                    <option value="Investment Consultation">Investment Consultation</option>
-                    <option value="General">General</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Priority</label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as Enquiry["priority"])}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Property or Project Interest</label>
-                <input
-                  type="text"
-                  value={propertyTitle}
-                  onChange={(e) => setPropertyTitle(e.target.value)}
-                  placeholder="e.g. Palm Signature Villa 12"
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                />
               </div>
 
               <div>

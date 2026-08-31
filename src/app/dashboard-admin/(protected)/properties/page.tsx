@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -14,143 +14,152 @@ import {
   Image as ImageIcon,
   SlidersHorizontal,
   X,
-  CheckCircle2,
-  ExternalLink,
-  Sparkles,
-  DollarSign,
-  Tag,
+  RefreshCw,
 } from "lucide-react";
-import { AdminStore, Property, Project } from "@/lib/adminStore";
+import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { PropertyRow } from "@/lib/supabase/types";
 
 export default function PropertiesPage() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const {
+    properties,
+    projects,
+    loading,
+    isConnected,
+    deleteProperty,
+    refreshData,
+  } = useRealtimeDashboard();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [editingProperty, setEditingProperty] = useState<PropertyRow | null>(null);
 
   // Form State
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<Property["type"]>("Villa");
-  const [location, setLocation] = useState("");
-  const [numericPrice, setNumericPrice] = useState(15000000);
+  const [titleEn, setTitleEn] = useState("");
+  const [titleAr, setTitleAr] = useState("");
+  const [propertyTypeEn, setPropertyTypeEn] = useState("Villa");
+  const [price, setPrice] = useState(15000000);
   const [bedrooms, setBedrooms] = useState(5);
   const [bathrooms, setBathrooms] = useState(6);
   const [areaSqFt, setAreaSqFt] = useState(7500);
-  const [status, setStatus] = useState<Property["status"]>("Published");
+  const [status, setStatus] = useState<"available" | "reserved" | "sold">("available");
   const [projectId, setProjectId] = useState("");
-  const [coverImage, setCoverImage] = useState("");
-  const [description, setDescription] = useState("");
-  const [featured, setFeatured] = useState(true);
+  const [descriptionEn, setDescriptionEn] = useState("");
+  const [descriptionAr, setDescriptionAr] = useState("");
+  const [isPublished, setIsPublished] = useState(true);
+  const [isFeatured, setIsFeatured] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = () => {
-    setProperties(AdminStore.getProperties());
-    setProjects(AdminStore.getProjects());
-  };
+  const supabase = getSupabaseBrowserClient();
 
   const openAddModal = () => {
     setEditingProperty(null);
-    setTitle("");
-    setType("Villa");
-    setLocation("Palm Jumeirah");
-    setNumericPrice(25000000);
+    setTitleEn("");
+    setTitleAr("");
+    setPropertyTypeEn("Villa");
+    setPrice(25000000);
     setBedrooms(5);
     setBathrooms(6);
     setAreaSqFt(8500);
-    setStatus("Published");
+    setStatus("available");
     setProjectId(projects[0]?.id || "");
-    setCoverImage("https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=1200&auto=format&fit=crop");
-    setDescription("");
-    setFeatured(true);
+    setDescriptionEn("");
+    setDescriptionAr("");
+    setIsPublished(true);
+    setIsFeatured(true);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (prop: Property) => {
+  const openEditModal = (prop: PropertyRow) => {
     setEditingProperty(prop);
-    setTitle(prop.title);
-    setType(prop.type);
-    setLocation(prop.location);
-    setNumericPrice(prop.numericPrice);
+    setTitleEn(prop.title_en);
+    setTitleAr(prop.title_ar || prop.title_en);
+    setPropertyTypeEn(prop.property_type_en);
+    setPrice(Number(prop.price));
     setBedrooms(prop.bedrooms);
     setBathrooms(prop.bathrooms);
-    setAreaSqFt(prop.areaSqFt);
+    setAreaSqFt(Number(prop.area_sqft));
     setStatus(prop.status);
-    setProjectId(prop.projectId || "");
-    setCoverImage(prop.coverImage);
-    setDescription(prop.description);
-    setFeatured(prop.featured);
+    setProjectId(prop.project_id || "");
+    setDescriptionEn(prop.description_en || "");
+    setDescriptionAr(prop.description_ar || "");
+    setIsPublished(prop.is_published);
+    setIsFeatured(prop.is_featured);
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !location) return;
+    if (!titleEn || !projectId) {
+      alert("Please enter a title and select an associated project.");
+      return;
+    }
 
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const formattedPrice = `AED ${numericPrice.toLocaleString()}`;
-    const selectedProject = projects.find((p) => p.id === projectId);
+    const slug = titleEn.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const refCode = `SHP-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    if (editingProperty) {
-      AdminStore.updateProperty(editingProperty.id, {
-        title,
-        slug,
-        type,
-        location,
-        price: formattedPrice,
-        numericPrice,
-        bedrooms: Number(bedrooms),
-        bathrooms: Number(bathrooms),
-        areaSqFt: Number(areaSqFt),
-        status,
-        projectId: projectId || undefined,
-        projectName: selectedProject?.title || undefined,
-        coverImage,
-        description,
-        featured,
-      });
-    } else {
-      AdminStore.addProperty({
-        title,
-        slug,
-        type,
-        location,
-        price: formattedPrice,
-        numericPrice,
-        bedrooms: Number(bedrooms),
-        bathrooms: Number(bathrooms),
-        areaSqFt: Number(areaSqFt),
-        status,
-        projectId: projectId || undefined,
-        projectName: selectedProject?.title || undefined,
-        coverImage: coverImage || "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=1200&auto=format&fit=crop",
-        description,
-        featured,
-      });
+    try {
+      if (editingProperty) {
+        await supabase
+          .from("properties")
+          .update({
+            title_en: titleEn,
+            title_ar: titleAr || titleEn,
+            property_type_en: propertyTypeEn,
+            property_type_ar: propertyTypeEn,
+            price,
+            bedrooms: Number(bedrooms),
+            bathrooms: Number(bathrooms),
+            area_sqft: Number(areaSqFt),
+            status,
+            project_id: projectId,
+            description_en: descriptionEn,
+            description_ar: descriptionAr,
+            is_published: isPublished,
+            is_featured: isFeatured,
+          })
+          .eq("id", editingProperty.id);
+      } else {
+        await supabase.from("properties").insert({
+          project_id: projectId,
+          slug,
+          reference_code: refCode,
+          title_en: titleEn,
+          title_ar: titleAr || titleEn,
+          property_type_en: propertyTypeEn,
+          property_type_ar: propertyTypeEn,
+          price,
+          bedrooms: Number(bedrooms),
+          bathrooms: Number(bathrooms),
+          area_sqft: Number(areaSqFt),
+          status,
+          description_en: descriptionEn,
+          description_ar: descriptionAr,
+          is_published: isPublished,
+          is_featured: isFeatured,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save property:", err);
     }
 
     setIsModalOpen(false);
-    loadData();
+    refreshData();
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this property listing?")) {
-      AdminStore.deleteProperty(id);
-      loadData();
+    if (confirm("Are you sure you want to delete this property listing from the database?")) {
+      deleteProperty(id);
     }
   };
 
   const filteredProperties = properties.filter((prop) => {
     const matchesSearch =
-      prop.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prop.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "All" || prop.type === typeFilter;
-    const matchesStatus = statusFilter === "All" || prop.status === statusFilter;
+      prop.title_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (prop.title_ar && prop.title_ar.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesType = typeFilter === "All" || prop.property_type_en === typeFilter;
+    const matchesStatus = statusFilter === "All" || prop.status.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -161,23 +170,35 @@ export default function PropertiesPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-mono text-xs text-accent font-semibold">table: properties</span>
+            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.2 rounded border border-emerald-500/20">
+              {isConnected ? "● Realtime Live" : "Syncing..."}
+            </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <Building2 className="text-accent" size={24} />
             Property Inventory Listings
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
-            Manage signature mansions, beachfront villas, sky penthouses, and pricing configurations.
+            Manage signature mansions, beachfront villas, sky penthouses, and live database configurations.
           </p>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>Add New Property</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refreshData}
+            title="Refresh from DB"
+            className="p-2.5 bg-[#1c1c1c] text-neutral-300 hover:text-white rounded-lg border border-[#2f2f2f] transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-accent" : ""} />
+          </button>
+          <button
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto"
+          >
+            <Plus size={16} />
+            <span>Add New Property</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -188,7 +209,7 @@ export default function PropertiesPage() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search properties by title, location..."
+            placeholder="Search properties by title..."
             className="w-full bg-[#1c1c1c] border border-[#2f2f2f] rounded-lg pl-9 pr-4 py-2 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-accent"
           />
         </div>
@@ -202,7 +223,7 @@ export default function PropertiesPage() {
             <option value="All">All Types</option>
             <option value="Villa">Villa</option>
             <option value="Penthouse">Penthouse</option>
-            <option value="Luxury Apartment">Luxury Apartment</option>
+            <option value="Apartment">Apartment</option>
             <option value="Mansion">Mansion</option>
             <option value="Townhouse">Townhouse</option>
           </select>
@@ -213,10 +234,9 @@ export default function PropertiesPage() {
             className="bg-[#1c1c1c] border border-[#2f2f2f] text-neutral-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-accent cursor-pointer"
           >
             <option value="All">All Statuses</option>
-            <option value="Published">Published</option>
-            <option value="Draft">Draft</option>
-            <option value="Sold">Sold</option>
-            <option value="Reserved">Reserved</option>
+            <option value="available">Available</option>
+            <option value="reserved">Reserved</option>
+            <option value="sold">Sold</option>
           </select>
         </div>
       </div>
@@ -228,7 +248,7 @@ export default function PropertiesPage() {
             <thead className="bg-[#191919] text-[11px] uppercase font-mono text-neutral-400 border-b border-[#262626]">
               <tr>
                 <th className="px-5 py-3.5">Property Listing</th>
-                <th className="px-5 py-3.5">Type & Project</th>
+                <th className="px-5 py-3.5">Type & Ref</th>
                 <th className="px-5 py-3.5">Price (AED)</th>
                 <th className="px-5 py-3.5">Specs</th>
                 <th className="px-5 py-3.5">Status</th>
@@ -239,40 +259,34 @@ export default function PropertiesPage() {
             <tbody className="divide-y divide-[#222222]">
               {filteredProperties.map((prop) => (
                 <tr key={prop.id} className="hover:bg-white/[0.02] transition-colors">
-                  {/* Property Title & Image */}
+                  {/* Property Title */}
                   <td className="px-5 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={prop.coverImage}
-                        alt={prop.title}
-                        className="w-12 h-12 rounded-lg object-cover border border-neutral-700 shrink-0"
-                      />
-                      <div>
-                        <div className="font-semibold text-white text-sm flex items-center gap-2">
-                          {prop.title}
-                          {prop.featured && (
-                            <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.2 rounded font-mono">
-                              Featured
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-neutral-400 font-mono mt-0.5">{prop.location}</div>
+                    <div>
+                      <div className="font-semibold text-white text-sm flex items-center gap-2">
+                        {prop.title_en}
+                        {prop.is_featured && (
+                          <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.2 rounded font-mono">
+                            Featured
+                          </span>
+                        )}
                       </div>
+                      <div className="text-xs text-neutral-400 font-mono mt-0.5">{prop.title_ar}</div>
                     </div>
                   </td>
 
-                  {/* Type & Project */}
+                  {/* Type & Ref */}
                   <td className="px-5 py-4 whitespace-nowrap">
-                    <div className="font-medium text-neutral-200">{prop.type}</div>
+                    <div className="font-medium text-neutral-200">{prop.property_type_en}</div>
                     <div className="text-xs text-neutral-500 font-mono">
-                      {prop.projectName || "Independent Estate"}
+                      {prop.reference_code || "SHP-001"}
                     </div>
                   </td>
 
                   {/* Price */}
                   <td className="px-5 py-4 whitespace-nowrap">
-                    <span className="font-bold text-accent text-sm font-mono">{prop.price}</span>
+                    <span className="font-bold text-accent text-sm font-mono">
+                      AED {Number(prop.price).toLocaleString()}
+                    </span>
                   </td>
 
                   {/* Specs Summary */}
@@ -285,7 +299,7 @@ export default function PropertiesPage() {
                         <Bath size={13} className="text-neutral-500" /> {prop.bathrooms}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Maximize size={13} className="text-neutral-500" /> {prop.areaSqFt.toLocaleString()} sqft
+                        <Maximize size={13} className="text-neutral-500" /> {Number(prop.area_sqft).toLocaleString()} sqft
                       </span>
                     </div>
                   </td>
@@ -294,14 +308,14 @@ export default function PropertiesPage() {
                   <td className="px-5 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium ${
-                        prop.status === "Published"
+                        prop.status === "available"
                           ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : prop.status === "Draft"
-                          ? "bg-neutral-800 text-neutral-400 border border-neutral-700"
+                          : prop.status === "reserved"
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                           : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                       }`}
                     >
-                      {prop.status}
+                      {prop.status.toUpperCase()}
                     </span>
                   </td>
 
@@ -311,7 +325,7 @@ export default function PropertiesPage() {
                       <Link
                         href={`/dashboard-admin/property-images`}
                         className="inline-flex items-center gap-1 px-2 py-1 bg-[#1e1e1e] hover:bg-accent hover:text-black rounded text-[11px] text-neutral-300 transition-colors font-mono"
-                        title="Manage Images for this property"
+                        title="Manage Images"
                       >
                         <ImageIcon size={12} />
                         <span>images</span>
@@ -319,7 +333,7 @@ export default function PropertiesPage() {
                       <Link
                         href={`/dashboard-admin/property-specs`}
                         className="inline-flex items-center gap-1 px-2 py-1 bg-[#1e1e1e] hover:bg-accent hover:text-black rounded text-[11px] text-neutral-300 transition-colors font-mono"
-                        title="Manage Specs for this property"
+                        title="Manage Specs"
                       >
                         <SlidersHorizontal size={12} />
                         <span>specs</span>
@@ -383,44 +397,45 @@ export default function PropertiesPage() {
             <form onSubmit={handleSave} className="p-6 space-y-4 text-xs sm:text-sm">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Property Title *</label>
+                  <label className="block text-neutral-300 font-medium mb-1">Title (English) *</label>
                   <input
                     type="text"
                     required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
                     placeholder="e.g. Palm Signature Villa 12"
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Property Type</label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value as Property["type"])}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="Villa">Villa</option>
-                    <option value="Penthouse">Penthouse</option>
-                    <option value="Luxury Apartment">Luxury Apartment</option>
-                    <option value="Mansion">Mansion</option>
-                    <option value="Townhouse">Townhouse</option>
-                  </select>
+                  <label className="block text-neutral-300 font-medium mb-1">Title (Arabic)</label>
+                  <input
+                    type="text"
+                    value={titleAr}
+                    onChange={(e) => setTitleAr(e.target.value)}
+                    placeholder="مثال: فيلا نخلة جميرا سيغنتشر"
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent dir-ltr"
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Location *</label>
-                  <input
-                    type="text"
+                  <label className="block text-neutral-300 font-medium mb-1">Associated Master Project *</label>
+                  <select
                     required
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Palm Jumeirah, Frond N"
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                  />
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
+                  >
+                    <option value="">Select Project</option>
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        {proj.name_en}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -428,8 +443,8 @@ export default function PropertiesPage() {
                   <input
                     type="number"
                     required
-                    value={numericPrice}
-                    onChange={(e) => setNumericPrice(Number(e.target.value))}
+                    value={price}
+                    onChange={(e) => setPrice(Number(e.target.value))}
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono"
                   />
                 </div>
@@ -467,18 +482,17 @@ export default function PropertiesPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Associated Master Project</label>
+                  <label className="block text-neutral-300 font-medium mb-1">Property Type</label>
                   <select
-                    value={projectId}
-                    onChange={(e) => setProjectId(e.target.value)}
+                    value={propertyTypeEn}
+                    onChange={(e) => setPropertyTypeEn(e.target.value)}
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
                   >
-                    <option value="">Standalone / Independent</option>
-                    {projects.map((proj) => (
-                      <option key={proj.id} value={proj.id}>
-                        {proj.title}
-                      </option>
-                    ))}
+                    <option value="Villa">Villa</option>
+                    <option value="Penthouse">Penthouse</option>
+                    <option value="Apartment">Apartment</option>
+                    <option value="Mansion">Mansion</option>
+                    <option value="Townhouse">Townhouse</option>
                   </select>
                 </div>
 
@@ -486,34 +500,22 @@ export default function PropertiesPage() {
                   <label className="block text-neutral-300 font-medium mb-1">Status</label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as Property["status"])}
+                    onChange={(e) => setStatus(e.target.value as any)}
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
                   >
-                    <option value="Published">Published</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Sold">Sold</option>
-                    <option value="Reserved">Reserved</option>
+                    <option value="available">Available</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="sold">Sold</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">Cover Image URL</label>
-                <input
-                  type="text"
-                  value={coverImage}
-                  onChange={(e) => setCoverImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Description</label>
+                <label className="block text-neutral-300 font-medium mb-1">Description (English)</label>
                 <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  value={descriptionEn}
+                  onChange={(e) => setDescriptionEn(e.target.value)}
                   placeholder="Luxury architectural features, oceanfront views, finishes..."
                   className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
                 />
