@@ -1,10 +1,9 @@
 "use client";
 
 import { ReactLenis } from "@studio-freight/react-lenis";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 
-export default function SmoothScrolling({ children }: { children: React.ReactNode }) {
-  // Use state to prevent hydration mismatch for reduced motion
+function SmoothScrollingComponent({ children }: { children: React.ReactNode }) {
   const [isReducedMotion, setIsReducedMotion] = useState(false);
 
   useEffect(() => {
@@ -27,11 +26,11 @@ export default function SmoothScrolling({ children }: { children: React.ReactNod
     <ReactLenis
       root
       options={{
-        lerp: 0.1,
-        duration: 1.2,
+        lerp: 0.08,
+        duration: 1.1,
         smoothWheel: true,
-        wheelMultiplier: 0.9,
-        touchMultiplier: 1.5,
+        wheelMultiplier: 0.95,
+        touchMultiplier: 1.2,
         infinite: false,
       }}
     >
@@ -39,3 +38,5 @@ export default function SmoothScrolling({ children }: { children: React.ReactNod
     </ReactLenis>
   );
 }
+
+export default memo(SmoothScrollingComponent);

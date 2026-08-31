@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitEnquiry } from "@/app/actions/enquiries";
 import { useI18n } from "@/lib/i18n";
 
-export default function InteractiveForm() {
+function InteractiveFormComponent() {
   const { t } = useI18n();
   const [isFocused, setIsFocused] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -40,18 +40,18 @@ export default function InteractiveForm() {
 
   return (
     <section id="sell" className="py-32 bg-background w-full relative flex justify-center overflow-hidden min-h-[600px] items-center">
-      {/* Animated Gradient Background */}
-      <motion.div 
-        animate={{ 
-          rotate: [0, 360],
-          scale: [1, 1.2, 1]
+      {/* High performance hardware-accelerated ambient glow (radial gradient instead of expensive per-frame Gaussian blur filter) */}
+      <div 
+        aria-hidden="true"
+        className="absolute w-[500px] h-[500px] rounded-full pointer-events-none opacity-20 dark:opacity-15 -z-10 gpu-layer"
+        style={{
+          background: "radial-gradient(circle, var(--color-accent) 0%, transparent 70%)",
+          willChange: "transform",
         }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        className="absolute w-[600px] h-[600px] rounded-full blur-[100px] opacity-20 bg-accent -z-10"
       />
 
       <div className="w-full max-w-xl mx-auto px-6 relative z-10">
-        <div className="bg-card/50 backdrop-blur-2xl border border-border p-8 md:p-12 rounded-[2.5rem] shadow-2xl">
+        <div className="bg-card/70 backdrop-blur-2xl border border-border p-8 md:p-12 rounded-[2.5rem] shadow-2xl">
           <h2 className="text-4xl font-bold mb-4 text-center tracking-tighter text-foreground">{t.interactiveForm.title}</h2>
           <p className="text-center text-foreground/60 mb-10 text-sm">{t.interactiveForm.subtitle}</p>
           
@@ -59,8 +59,9 @@ export default function InteractiveForm() {
             {status !== "success" ? (
               <motion.form 
                 key="form"
-                initial={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
+                initial={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
                 onSubmit={handleSubmit}
                 className="w-full space-y-6"
               >
@@ -84,7 +85,8 @@ export default function InteractiveForm() {
                       scale: isFocused || value ? 0.85 : 1,
                       color: isFocused ? "var(--color-accent)" : "var(--color-foreground)"
                     }}
-                    className="absolute start-4 origin-start pointer-events-none transition-colors opacity-60"
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="absolute start-4 origin-start pointer-events-none transition-colors opacity-60 text-sm"
                   >
                     {t.interactiveForm.placeholder}
                   </motion.label>
@@ -95,8 +97,8 @@ export default function InteractiveForm() {
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
                     className={cn(
-                      "w-full bg-background border border-border rounded-2xl px-4 pt-6 pb-2 text-foreground outline-none transition-all duration-300",
-                      isFocused && "border-accent shadow-[0_0_20px_var(--color-accent)] shadow-accent/20"
+                      "w-full bg-background border border-border rounded-2xl px-4 pt-6 pb-2 text-foreground outline-none transition-colors duration-200",
+                      isFocused && "border-accent shadow-[0_0_16px_rgba(184,134,11,0.2)]"
                     )}
                   />
                 </div>
@@ -108,15 +110,16 @@ export default function InteractiveForm() {
                 <button
                   type="submit"
                   disabled={status === "loading" || !value}
-                  className="w-full relative h-14 bg-accent text-accent-foreground rounded-2xl font-semibold overflow-hidden transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg hover:shadow-accent/30 hover:-translate-y-0.5"
+                  className="w-full relative h-14 bg-accent text-accent-foreground rounded-2xl font-semibold overflow-hidden transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg hover:shadow-accent/30 hover:-translate-y-0.5 gpu-layer"
                 >
                   <AnimatePresence mode="wait">
                     {status === "idle" && (
                       <motion.span
                         key="idle"
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.15 }}
                       >
                         {t.interactiveForm.submit}
                       </motion.span>
@@ -124,9 +127,10 @@ export default function InteractiveForm() {
                     {status === "loading" && (
                       <motion.span
                         key="loading"
-                        initial={{ opacity: 0, scale: 0.5 }}
+                        initial={{ opacity: 0, scale: 0.7 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.5 }}
+                        exit={{ opacity: 0, scale: 0.7 }}
+                        transition={{ duration: 0.15 }}
                       >
                         <Loader2 className="w-5 h-5 animate-spin" />
                       </motion.span>
@@ -134,9 +138,10 @@ export default function InteractiveForm() {
                     {status === "error" && (
                       <motion.span
                         key="retry"
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.15 }}
                       >
                         {t.interactiveForm.retry}
                       </motion.span>
@@ -147,17 +152,14 @@ export default function InteractiveForm() {
             ) : (
               <motion.div
                 key="success"
-                initial={{ opacity: 0, scale: 0.8 }}
+                initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
                 className="w-full flex flex-col items-center justify-center py-12"
               >
-                <motion.div 
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mb-4"
-                >
+                <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mb-4 shadow-lg">
                   <Check className="w-8 h-8 text-accent-foreground" />
-                </motion.div>
+                </div>
                 <p className="text-2xl font-bold text-foreground tracking-tighter">{t.interactiveForm.received}</p>
                 <p className="text-foreground/60 text-sm mt-2">{t.interactiveForm.receivedDesc}</p>
               </motion.div>
@@ -168,3 +170,5 @@ export default function InteractiveForm() {
     </section>
   );
 }
+
+export default memo(InteractiveFormComponent);

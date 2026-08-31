@@ -1,14 +1,15 @@
-import { Variants, Transition, TargetAndTransition } from "framer-motion";
+import { Variants, Transition } from "framer-motion";
 
 export const springTransition: Transition = {
   type: "spring",
-  stiffness: 100,
-  damping: 20,
+  stiffness: 140,
+  damping: 22,
+  mass: 0.8,
 };
 
 export const slowSpring: Transition = {
   type: "spring",
-  stiffness: 50,
+  stiffness: 70,
   damping: 25,
 };
 
@@ -17,13 +18,14 @@ export const staggerContainer: Variants = {
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
+      staggerChildren: 0.08,
     },
   },
 };
 
+// Pure composite GPU properties (translateY and opacity only)
 export const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 24 },
   show: { 
     opacity: 1, 
     y: 0,
@@ -31,16 +33,14 @@ export const fadeUp: Variants = {
   },
 };
 
-export const tabSwitchEnter: TargetAndTransition = {
+export const tabSwitchEnter = {
   opacity: 1,
   y: 0,
-  filter: "blur(0px)",
   transition: springTransition,
 };
 
-export const tabSwitchExit: TargetAndTransition = {
+export const tabSwitchExit = {
   opacity: 0,
-  y: -10,
-  filter: "blur(4px)",
-  transition: { duration: 0.3 },
+  y: -8,
+  transition: { duration: 0.2 },
 };

@@ -32,21 +32,16 @@ export default function CustomCursor() {
 
     const onMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "A" ||
-          target.tagName === "BUTTON" ||
-          target.tagName === "INPUT" ||
-          target.tagName === "SELECT" ||
-          target.tagName === "TEXTAREA" ||
-          target.closest("a") ||
-          target.closest("button") ||
-          target.getAttribute("role") === "button")
-      ) {
-        isHovered = true;
-      } else {
-        isHovered = false;
-      }
+      if (!target) return;
+      const isInteractive =
+        target.tagName === "A" ||
+        target.tagName === "BUTTON" ||
+        target.tagName === "INPUT" ||
+        target.tagName === "SELECT" ||
+        target.tagName === "TEXTAREA" ||
+        Boolean(target.closest("a, button, [role='button']"));
+
+      isHovered = isInteractive;
     };
 
     const onMouseLeave = () => {
@@ -55,20 +50,21 @@ export default function CustomCursor() {
       if (ringRef.current) ringRef.current.style.opacity = "0";
     };
 
+    // Dedicated high-frequency 60/120fps render loop with pure GPU translate3d
     const render = () => {
-      // Smooth lerp for outer trailing ring
-      ringX += (mouseX - ringX) * 0.18;
-      ringY += (mouseY - ringY) * 0.18;
+      // Smooth lerp without layout triggers
+      ringX += (mouseX - ringX) * 0.2;
+      ringY += (mouseY - ringY) * 0.2;
 
       if (dotRef.current) {
-        const dotScale = isHovered ? 2.5 : 1;
-        dotRef.current.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%) scale(${dotScale})`;
+        const dotScale = isHovered ? 2.2 : 1;
+        dotRef.current.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%) scale3d(${dotScale}, ${dotScale}, 1)`;
       }
 
       if (ringRef.current) {
-        const ringScale = isHovered ? 1.6 : 1;
-        ringRef.current.style.transform = `translate3d(${ringX}px, ${ringY}px, 0) translate(-50%, -50%) scale(${ringScale})`;
-        ringRef.current.style.borderColor = isHovered ? "var(--color-accent, #D4AF37)" : "rgba(212, 175, 55, 0.4)";
+        const ringScale = isHovered ? 1.5 : 1;
+        ringRef.current.style.transform = `translate3d(${ringX}px, ${ringY}px, 0) translate(-50%, -50%) scale3d(${ringScale}, ${ringScale}, 1)`;
+        ringRef.current.style.borderColor = isHovered ? "var(--color-accent, #B8860B)" : "rgba(184, 134, 11, 0.4)";
       }
 
       rafId = requestAnimationFrame(render);
@@ -89,19 +85,18 @@ export default function CustomCursor() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[99999] overflow-hidden select-none hidden md:block">
-      {/* Outer trailing ring */}
+      {/* Outer trailing ring - pure GPU transform without CSS transition conflict */}
       <div
         ref={ringRef}
-        style={{ opacity: 0, willChange: "transform, opacity", transition: "border-color 0.2s ease" }}
+        style={{ opacity: 0, willChange: "transform, opacity" }}
         className="fixed top-0 left-0 w-8 h-8 rounded-full border border-accent/40 pointer-events-none"
       />
-      {/* Inner precise dot */}
+      {/* Inner precise dot - pure GPU transform without CSS transition conflict */}
       <div
         ref={dotRef}
-        style={{ opacity: 0, willChange: "transform, opacity", transition: "transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)" }}
+        style={{ opacity: 0, willChange: "transform, opacity" }}
         className="fixed top-0 left-0 w-2 h-2 rounded-full bg-accent pointer-events-none shadow-[0_0_8px_rgba(212,175,55,0.8)]"
       />
     </div>
   );
 }
-
