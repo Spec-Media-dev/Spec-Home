@@ -1,135 +1,133 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   FolderKanban,
   Plus,
   Search,
-  Building,
-  Calendar,
-  Layers,
   Edit2,
   Trash2,
   X,
-  ExternalLink,
-  MapPin,
-  Sparkles,
   LayoutGrid,
   List,
+  RefreshCw,
 } from "lucide-react";
-import { AdminStore, Project } from "@/lib/adminStore";
+import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { ProjectRow } from "@/lib/supabase/types";
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const {
+    projects,
+    loading,
+    isConnected,
+    deleteProject,
+    refreshData,
+  } = useRealtimeDashboard();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<ProjectRow | null>(null);
 
   // Form state
-  const [title, setTitle] = useState("");
-  const [developer, setDeveloper] = useState("");
-  const [location, setLocation] = useState("");
-  const [startingPrice, setStartingPrice] = useState("");
-  const [units, setUnits] = useState(24);
-  const [completionDate, setCompletionDate] = useState("Q4 2027");
-  const [status, setStatus] = useState<Project["status"]>("Under Construction");
-  const [heroImage, setHeroImage] = useState("");
-  const [description, setDescription] = useState("");
-  const [featured, setFeatured] = useState(true);
+  const [nameEn, setNameEn] = useState("");
+  const [nameAr, setNameAr] = useState("");
+  const [locationEn, setLocationEn] = useState("");
+  const [coverImagePath, setCoverImagePath] = useState("");
+  const [descriptionEn, setDescriptionEn] = useState("");
+  const [descriptionAr, setDescriptionAr] = useState("");
+  const [isPublished, setIsPublished] = useState(true);
+  const [isFeatured, setIsFeatured] = useState(true);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = () => {
-    setProjects(AdminStore.getProjects());
-  };
+  const supabase = getSupabaseBrowserClient();
 
   const openAddModal = () => {
     setEditingProject(null);
-    setTitle("");
-    setDeveloper("SPEC Signature Developments");
-    setLocation("Downtown Dubai");
-    setStartingPrice("AED 12,000,000");
-    setUnits(36);
-    setCompletionDate("Q3 2027");
-    setStatus("Under Construction");
-    setHeroImage("https://images.unsplash.com/photo-1546412414-e1885259563a?q=80&w=1200&auto=format&fit=crop");
-    setDescription("");
-    setFeatured(true);
+    setNameEn("");
+    setNameAr("");
+    setLocationEn("Downtown Dubai");
+    setCoverImagePath("https://images.unsplash.com/photo-1546412414-e1885259563a?q=80&w=1200&auto=format&fit=crop");
+    setDescriptionEn("");
+    setDescriptionAr("");
+    setIsPublished(true);
+    setIsFeatured(true);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (proj: Project) => {
+  const openEditModal = (proj: ProjectRow) => {
     setEditingProject(proj);
-    setTitle(proj.title);
-    setDeveloper(proj.developer);
-    setLocation(proj.location);
-    setStartingPrice(proj.startingPrice);
-    setUnits(proj.units);
-    setCompletionDate(proj.completionDate);
-    setStatus(proj.status);
-    setHeroImage(proj.heroImage);
-    setDescription(proj.description);
-    setFeatured(proj.featured);
+    setNameEn(proj.name_en);
+    setNameAr(proj.name_ar || proj.name_en);
+    setLocationEn(proj.location_en || "");
+    setCoverImagePath(proj.cover_image_path || "");
+    setDescriptionEn(proj.description_en || "");
+    setDescriptionAr(proj.description_ar || "");
+    setIsPublished(proj.is_published);
+    setIsFeatured(proj.is_featured);
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !location) return;
+    if (!nameEn) return;
 
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const slug = nameEn.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-    if (editingProject) {
-      AdminStore.updateProject(editingProject.id, {
-        title,
-        slug,
-        developer,
-        location,
-        startingPrice,
-        units: Number(units),
-        completionDate,
-        status,
-        heroImage,
-        description,
-        featured,
-      });
-    } else {
-      AdminStore.addProject({
-        title,
-        slug,
-        developer,
-        location,
-        startingPrice,
-        units: Number(units),
-        completionDate,
-        status,
-        heroImage: heroImage || "https://images.unsplash.com/photo-1546412414-e1885259563a?q=80&w=1200&auto=format&fit=crop",
-        description,
-        featured,
-      });
+    try {
+      if (editingProject) {
+        await supabase
+          .from("projects")
+          .update({
+            name_en: nameEn,
+            name_ar: nameAr || nameEn,
+            location_en: locationEn,
+            location_ar: locationEn,
+            cover_image_path: coverImagePath,
+            description_en: descriptionEn,
+            description_ar: descriptionAr,
+            is_published: isPublished,
+            is_featured: isFeatured,
+          })
+          .eq("id", editingProject.id);
+      } else {
+        await supabase.from("projects").insert({
+          slug,
+          name_en: nameEn,
+          name_ar: nameAr || nameEn,
+          location_en: locationEn,
+          location_ar: locationEn,
+          cover_image_path: coverImagePath,
+          description_en: descriptionEn,
+          description_ar: descriptionAr,
+          is_published: isPublished,
+          is_featured: isFeatured,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save project:", err);
     }
 
     setIsModalOpen(false);
-    loadProjects();
+    refreshData();
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to remove this project development?")) {
-      AdminStore.deleteProject(id);
-      loadProjects();
+    if (confirm("Are you sure you want to remove this master project from the database?")) {
+      deleteProject(id);
     }
   };
 
   const filteredProjects = projects.filter((proj) => {
     const matchesSearch =
-      proj.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      proj.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      proj.developer.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "All" || proj.status === statusFilter;
+      proj.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (proj.name_ar && proj.name_ar.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (proj.location_en && proj.location_en.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus =
+      statusFilter === "All" ||
+      (statusFilter === "Published" && proj.is_published) ||
+      (statusFilter === "Draft" && !proj.is_published);
     return matchesSearch && matchesStatus;
   });
 
@@ -140,23 +138,35 @@ export default function ProjectsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-mono text-xs text-accent font-semibold">table: projects</span>
+            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.2 rounded border border-emerald-500/20">
+              {isConnected ? "● Realtime Live" : "Syncing..."}
+            </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <FolderKanban className="text-accent" size={24} />
             Master Projects & Developments
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
-            Manage iconic residential developments, developer partnerships, and completion milestones.
+            Manage iconic residential developments and live database master portfolios.
           </p>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>New Project</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refreshData}
+            title="Refresh from DB"
+            className="p-2.5 bg-[#1c1c1c] text-neutral-300 hover:text-white rounded-lg border border-[#2f2f2f] transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-accent" : ""} />
+          </button>
+          <button
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto"
+          >
+            <Plus size={16} />
+            <span>New Master Project</span>
+          </button>
+        </div>
       </div>
 
       {/* Controls & Search */}
@@ -167,7 +177,7 @@ export default function ProjectsPage() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search projects by name, location, developer..."
+            placeholder="Search projects by name, location..."
             className="w-full bg-[#1c1c1c] border border-[#2f2f2f] rounded-lg pl-9 pr-4 py-2 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-accent"
           />
         </div>
@@ -179,10 +189,8 @@ export default function ProjectsPage() {
             className="bg-[#1c1c1c] border border-[#2f2f2f] text-neutral-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-accent cursor-pointer"
           >
             <option value="All">All Statuses</option>
-            <option value="Under Construction">Under Construction</option>
-            <option value="Ready / Handover">Ready / Handover</option>
-            <option value="Launching Soon">Launching Soon</option>
-            <option value="Sold Out">Sold Out</option>
+            <option value="Published">Published</option>
+            <option value="Draft">Draft</option>
           </select>
 
           <div className="flex items-center border border-[#2f2f2f] rounded-lg bg-[#1c1c1c] p-0.5">
@@ -216,8 +224,8 @@ export default function ProjectsPage() {
               <div className="h-48 relative overflow-hidden bg-[#1f1f1f]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={proj.heroImage}
-                  alt={proj.title}
+                  src={proj.cover_image_path || "https://images.unsplash.com/photo-1546412414-e1885259563a?q=80&w=1200&auto=format&fit=crop"}
+                  alt={proj.name_en}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-black/40" />
@@ -225,14 +233,12 @@ export default function ProjectsPage() {
                 <div className="absolute top-3 left-3">
                   <span
                     className={`text-[10px] font-mono font-medium px-2.5 py-1 rounded-full shadow-md ${
-                      proj.status === "Ready / Handover"
+                      proj.is_published
                         ? "bg-emerald-500/90 text-black font-semibold"
-                        : proj.status === "Under Construction"
-                        ? "bg-blue-500/90 text-white"
-                        : "bg-amber-500/90 text-black font-semibold"
+                        : "bg-neutral-800 text-neutral-300"
                     }`}
                   >
-                    {proj.status}
+                    {proj.is_published ? "PUBLISHED" : "DRAFT"}
                   </span>
                 </div>
 
@@ -254,10 +260,10 @@ export default function ProjectsPage() {
                 <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
                   <div>
                     <span className="text-[11px] text-accent uppercase tracking-wider font-semibold">
-                      {proj.developer}
+                      {proj.location_en || "Dubai"}
                     </span>
                     <h3 className="text-lg font-bold text-white leading-tight">
-                      {proj.title}
+                      {proj.name_en}
                     </h3>
                   </div>
                 </div>
@@ -266,22 +272,12 @@ export default function ProjectsPage() {
               {/* Body */}
               <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
                 <p className="text-xs text-neutral-400 line-clamp-2">
-                  {proj.description || "Master planned architectural statement in Dubai."}
+                  {proj.description_en || "Master planned architectural statement in Dubai."}
                 </p>
 
-                <div className="grid grid-cols-3 gap-2 py-3 px-3 rounded-lg bg-[#181818] border border-[#222222] text-xs">
-                  <div>
-                    <div className="text-[10px] text-neutral-500 font-mono">LOCATION</div>
-                    <div className="font-semibold text-white truncate">{proj.location}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-neutral-500 font-mono">FROM</div>
-                    <div className="font-semibold text-accent truncate">{proj.startingPrice}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-neutral-500 font-mono">UNITS</div>
-                    <div className="font-semibold text-white">{proj.units} Units</div>
-                  </div>
+                <div className="py-2 px-3 rounded-lg bg-[#181818] border border-[#222222] text-xs flex justify-between">
+                  <span className="text-neutral-400 font-mono text-[11px]">SLUG:</span>
+                  <span className="text-accent font-mono text-[11px]">{proj.slug}</span>
                 </div>
               </div>
             </div>
@@ -297,10 +293,8 @@ export default function ProjectsPage() {
               <thead className="bg-[#191919] text-[11px] uppercase font-mono text-neutral-400 border-b border-[#262626]">
                 <tr>
                   <th className="px-5 py-3.5">Project</th>
-                  <th className="px-5 py-3.5">Developer</th>
+                  <th className="px-5 py-3.5">Arabic Name</th>
                   <th className="px-5 py-3.5">Location</th>
-                  <th className="px-5 py-3.5">Starting Price</th>
-                  <th className="px-5 py-3.5">Units</th>
                   <th className="px-5 py-3.5">Status</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
@@ -309,23 +303,15 @@ export default function ProjectsPage() {
                 {filteredProjects.map((proj) => (
                   <tr key={proj.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={proj.heroImage}
-                          alt={proj.title}
-                          className="w-10 h-10 rounded-lg object-cover border border-[#2f2f2f] shrink-0"
-                        />
-                        <div className="font-semibold text-white">{proj.title}</div>
-                      </div>
+                      <div className="font-semibold text-white">{proj.name_en}</div>
                     </td>
-                    <td className="px-5 py-4 whitespace-nowrap text-neutral-300">{proj.developer}</td>
-                    <td className="px-5 py-4 whitespace-nowrap text-neutral-300">{proj.location}</td>
-                    <td className="px-5 py-4 whitespace-nowrap font-bold text-accent">{proj.startingPrice}</td>
-                    <td className="px-5 py-4 whitespace-nowrap text-neutral-300">{proj.units}</td>
+                    <td className="px-5 py-4 whitespace-nowrap text-neutral-300 dir-ltr">{proj.name_ar}</td>
+                    <td className="px-5 py-4 whitespace-nowrap text-neutral-300">{proj.location_en}</td>
                     <td className="px-5 py-4 whitespace-nowrap">
-                      <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                        {proj.status}
+                      <span className={`text-xs font-mono px-2.5 py-0.5 rounded-full ${
+                        proj.is_published ? "bg-emerald-500/10 text-emerald-400" : "bg-neutral-800 text-neutral-400"
+                      }`}>
+                        {proj.is_published ? "Published" : "Draft"}
                       </span>
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-right">
@@ -374,104 +360,57 @@ export default function ProjectsPage() {
             <form onSubmit={handleSave} className="p-6 space-y-4 text-xs sm:text-sm">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Project Title *</label>
+                  <label className="block text-neutral-300 font-medium mb-1">Project Name (English) *</label>
                   <input
                     type="text"
                     required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    value={nameEn}
+                    onChange={(e) => setNameEn(e.target.value)}
                     placeholder="The Sapphire Residences"
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Developer Partner</label>
+                  <label className="block text-neutral-300 font-medium mb-1">Project Name (Arabic)</label>
                   <input
                     type="text"
-                    value={developer}
-                    onChange={(e) => setDeveloper(e.target.value)}
-                    placeholder="SPEC Signature Developments"
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Location *</label>
-                  <input
-                    type="text"
-                    required
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Palm Jumeirah, Frond N"
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Starting Price</label>
-                  <input
-                    type="text"
-                    value={startingPrice}
-                    onChange={(e) => setStartingPrice(e.target.value)}
-                    placeholder="AED 9,500,000"
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Total Units</label>
-                  <input
-                    type="number"
-                    value={units}
-                    onChange={(e) => setUnits(Number(e.target.value))}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
+                    value={nameAr}
+                    onChange={(e) => setNameAr(e.target.value)}
+                    placeholder="أبراج ذا سافاير ريزيدنسز"
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent dir-ltr"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Construction Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as Project["status"])}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="Under Construction">Under Construction</option>
-                    <option value="Ready / Handover">Ready / Handover</option>
-                    <option value="Launching Soon">Launching Soon</option>
-                    <option value="Sold Out">Sold Out</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Completion Target</label>
+                  <label className="block text-neutral-300 font-medium mb-1">Location</label>
                   <input
                     type="text"
-                    value={completionDate}
-                    onChange={(e) => setCompletionDate(e.target.value)}
-                    placeholder="Q4 2027"
+                    value={locationEn}
+                    onChange={(e) => setLocationEn(e.target.value)}
+                    placeholder="Downtown Dubai"
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-300 font-medium mb-1">Cover Image URL</label>
+                  <input
+                    type="text"
+                    value={coverImagePath}
+                    onChange={(e) => setCoverImagePath(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono text-xs"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">Hero Image URL</label>
-                <input
-                  type="text"
-                  value={heroImage}
-                  onChange={(e) => setHeroImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Description</label>
+                <label className="block text-neutral-300 font-medium mb-1">Description (English)</label>
                 <textarea
                   rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  value={descriptionEn}
+                  onChange={(e) => setDescriptionEn(e.target.value)}
                   placeholder="Architectural overview, key amenities, and development profile..."
                   className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
                 />
