@@ -11,11 +11,12 @@ import {
   Users,
   Settings,
   LogOut,
-  Menu,
   X,
 } from "lucide-react";
 import clsx from "clsx";
 import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
+
+import { FriesIcon } from "./AdminHeader";
 
 export default function AdminSidebar() {
   const { enquiries } = useRealtimeDashboard();
@@ -76,7 +77,7 @@ export default function AdminSidebar() {
         aria-label="Open Menu"
         className="md:hidden fixed bottom-6 right-6 z-50 p-3.5 bg-accent text-black rounded-full shadow-2xl border border-white/20 active:scale-95 transition-transform"
       >
-        <Menu size={22} />
+        <FriesIcon size={22} />
       </button>
 
       {/* Mobile Overlay */}

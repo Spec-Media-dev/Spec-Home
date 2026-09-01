@@ -2,7 +2,25 @@
 
 import React from "react";
 import Link from "next/link";
-import { ExternalLink, Bell, Menu } from "lucide-react";
+import { ExternalLink, Bell } from "lucide-react";
+
+export const FriesIcon = ({ size = 18, className = "" }: { size?: number; className?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="15" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
 
 export default function AdminHeader() {
   const toggleSidebar = () => {
@@ -18,7 +36,7 @@ export default function AdminHeader() {
           aria-label="Open Navigation Menu"
           className="p-2 text-neutral-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors border border-[#2a2a2a]"
         >
-          <Menu size={18} />
+          <FriesIcon size={18} />
         </button>
         <Link href="/dashboard-admin" className="flex items-center gap-2">
           <div className="w-6 h-6 rounded bg-accent flex items-center justify-center text-black font-bold text-xs">
