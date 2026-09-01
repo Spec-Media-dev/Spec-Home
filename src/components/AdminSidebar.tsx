@@ -7,7 +7,10 @@ import {
   LayoutDashboard,
   FolderKanban,
   Building2,
+  Image as ImageIcon,
+  SlidersHorizontal,
   MessageSquareText,
+  Globe2,
   Users,
   Settings,
   LogOut,
@@ -15,7 +18,6 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
-
 import { FriesIcon } from "./AdminHeader";
 
 export default function AdminSidebar() {
@@ -38,7 +40,7 @@ export default function AdminSidebar() {
     },
     {
       href: "/dashboard-admin/projects",
-      label: "Projects",
+      label: "Master Projects",
       icon: FolderKanban,
     },
     {
@@ -47,10 +49,25 @@ export default function AdminSidebar() {
       icon: Building2,
     },
     {
+      href: "/dashboard-admin/property-images",
+      label: "Media Gallery",
+      icon: ImageIcon,
+    },
+    {
+      href: "/dashboard-admin/property-specs",
+      label: "Specifications",
+      icon: SlidersHorizontal,
+    },
+    {
       href: "/dashboard-admin/enquiries",
       label: "Lead Inbox",
       icon: MessageSquareText,
       badge: enquiries.filter((e) => e.status === "new").length || undefined,
+    },
+    {
+      href: "/dashboard-admin/seo",
+      label: "SEO Management",
+      icon: Globe2,
     },
     {
       href: "/dashboard-admin/admin-profiles",
@@ -59,7 +76,7 @@ export default function AdminSidebar() {
     },
     {
       href: "/dashboard-admin/settings",
-      label: "Settings",
+      label: "Site Settings",
       icon: Settings,
     },
   ];
@@ -91,7 +108,7 @@ export default function AdminSidebar() {
       {/* Sidebar */}
       <aside
         className={clsx(
-          "fixed md:static inset-y-0 left-0 z-50 w-56 bg-[#111111] border-r border-[#262626] flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 select-none",
+          "fixed md:static inset-y-0 left-0 z-50 w-60 bg-[#111111] border-r border-[#262626] flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 select-none",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -118,7 +135,7 @@ export default function AdminSidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item);
@@ -129,15 +146,15 @@ export default function AdminSidebar() {
                 href={item.href}
                 onClick={() => setIsOpen(false)}
                 className={clsx(
-                  "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                  "flex items-center justify-between px-3 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all group",
                   active
-                    ? "bg-accent/10 text-accent"
+                    ? "bg-accent/10 text-accent font-semibold"
                     : "text-neutral-400 hover:text-white hover:bg-white/5"
                 )}
               >
                 <div className="flex items-center gap-3">
                   <Icon
-                    size={18}
+                    size={17}
                     className={clsx(
                       active ? "text-accent" : "text-neutral-500 group-hover:text-neutral-300"
                     )}
@@ -162,7 +179,7 @@ export default function AdminSidebar() {
               await logoutAdmin();
               window.location.href = "/dashboard-admin/login";
             }}
-            className="flex items-center justify-center gap-2 py-2 text-xs text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors w-full"
+            className="flex items-center justify-center gap-2 py-2.5 text-xs text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors w-full font-medium"
           >
             <LogOut size={14} />
             <span>Sign Out</span>

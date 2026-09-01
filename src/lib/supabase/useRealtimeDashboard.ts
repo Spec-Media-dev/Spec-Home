@@ -1,7 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getFullDashboardData } from "@/app/actions/dashboard";
+import {
+  updateEnquiryStatus as serverUpdateEnquiryStatus,
+  deleteEnquiry as serverDeleteEnquiry,
+} from "@/app/actions/enquiries";
+import { deleteProperty as serverDeleteProperty } from "@/app/actions/properties";
+import { deleteProject as serverDeleteProject } from "@/app/actions/projects";
+import { deletePropertyImage as serverDeleteImage } from "@/app/actions/property-images";
+import { deletePropertySpec as serverDeleteSpec } from "@/app/actions/property-specs";
+import { deleteAdmin as serverDeleteAdmin } from "@/app/actions/admin";
 import type {
   ProjectRow,
   PropertyRow,
@@ -10,6 +20,8 @@ import type {
   AdminProfileRow,
   EnquiryRow,
   SiteSettingsRow,
+  SeoSettingsRow,
+  PageSeoRow,
 } from "@/lib/supabase/types";
 
 export function useRealtimeDashboard() {
@@ -20,48 +32,31 @@ export function useRealtimeDashboard() {
   const [admins, setAdmins] = useState<AdminProfileRow[]>([]);
   const [enquiries, setEnquiries] = useState<EnquiryRow[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettingsRow | null>(null);
+  const [seoSettings, setSeoSettings] = useState<SeoSettingsRow | null>(null);
+  const [pageSeoList, setPageSeoList] = useState<PageSeoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const supabase = getSupabaseBrowserClient();
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // 1. Initial Full Data Fetch — 100% directly from Database (NO STATIC FALLBACKS)
+  // 1. Initial Full Data Fetch — Via Service Role Server Action to bypass client RLS on enquiries and admins
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const [
-        { data: projectsData, error: pErr },
-        { data: propertiesData, error: prErr },
-        { data: imagesData, error: imgErr },
-        { data: specsData, error: spErr },
-        { data: adminsData, error: admErr },
-        { data: enquiriesData, error: enqErr },
-        { data: settingsData, error: setErr },
-      ] = await Promise.all([
-        supabase.from("projects").select("*").order("created_at", { ascending: false }),
-        supabase.from("properties").select("*").order("created_at", { ascending: false }),
-        supabase.from("property_images").select("*").order("display_order", { ascending: true }),
-        supabase.from("property_specs").select("*").order("created_at", { ascending: true }),
-        supabase.from("admin_profiles").select("*").order("created_at", { ascending: false }),
-        supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
-        supabase.from("site_settings").select("*").limit(1).maybeSingle(),
-      ]);
+      const data = await getFullDashboardData();
 
-      if (pErr) console.error("Projects Fetch Error:", pErr.message);
-      if (prErr) console.error("Properties Fetch Error:", prErr.message);
-
-      // Always set pure database data (even if empty array)
-      setProjects(projectsData || []);
-      setProperties(propertiesData || []);
-      setImages(imagesData || []);
-      setSpecs(specsData || []);
-      setAdmins(adminsData || []);
-      setEnquiries(enquiriesData || []);
-      setSiteSettings(settingsData || null);
+      setProjects(data.projects || []);
+      setProperties(data.properties || []);
+      setImages(data.images || []);
+      setSpecs(data.specs || []);
+      setAdmins(data.admins || []);
+      setEnquiries(data.enquiries || []);
+      setSiteSettings(data.siteSettings || null);
+      setSeoSettings(data.seoSettings || null);
+      setPageSeoList(data.pageSeoList || []);
 
       setIsConnected(true);
       setLastSync(new Date());
@@ -71,29 +66,32 @@ export function useRealtimeDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
-  // 2. Realtime WebSocket Subscription (Zero-lag postgres_changes)
+  // 2. Realtime WebSocket Subscription with unique channel instance
   useEffect(() => {
     fetchAllData();
 
-    // Create a unified high-performance Supabase channel with a unique name
-    // to allow multiple components to use this hook concurrently without conflict
-    const channelName = `admin-realtime-hub-${Math.random().toString(36).substring(2, 9)}`;
-    const channel = supabase
-      .channel(channelName)
+    // Unique channel per subscription to prevent channel collision
+    const channelName = `dashboard-realtime-${Math.random().toString(36).slice(2, 9)}`;
+    const channel = supabase.channel(channelName);
+
+    channel
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "enquiries" },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setEnquiries((prev) => [payload.new as EnquiryRow, ...prev]);
+            setEnquiries((prev) => {
+              if (prev.some((e) => e.id === payload.new.id)) return prev;
+              return [payload.new as EnquiryRow, ...prev];
+            });
           } else if (payload.eventType === "UPDATE") {
             setEnquiries((prev) =>
-              prev.map((item) => (item.id === payload.new.id ? (payload.new as EnquiryRow) : item))
+              prev.map((e) => (e.id === payload.new.id ? (payload.new as EnquiryRow) : e))
             );
           } else if (payload.eventType === "DELETE") {
-            setEnquiries((prev) => prev.filter((item) => item.id !== payload.old.id));
+            setEnquiries((prev) => prev.filter((e) => e.id !== payload.old.id));
           }
           setLastSync(new Date());
         }
@@ -103,13 +101,16 @@ export function useRealtimeDashboard() {
         { event: "*", schema: "public", table: "properties" },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setProperties((prev) => [payload.new as PropertyRow, ...prev]);
+            setProperties((prev) => {
+              if (prev.some((p) => p.id === payload.new.id)) return prev;
+              return [payload.new as PropertyRow, ...prev];
+            });
           } else if (payload.eventType === "UPDATE") {
             setProperties((prev) =>
-              prev.map((item) => (item.id === payload.new.id ? (payload.new as PropertyRow) : item))
+              prev.map((p) => (p.id === payload.new.id ? (payload.new as PropertyRow) : p))
             );
           } else if (payload.eventType === "DELETE") {
-            setProperties((prev) => prev.filter((item) => item.id !== payload.old.id));
+            setProperties((prev) => prev.filter((p) => p.id !== payload.old.id));
           }
           setLastSync(new Date());
         }
@@ -119,13 +120,16 @@ export function useRealtimeDashboard() {
         { event: "*", schema: "public", table: "projects" },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setProjects((prev) => [payload.new as ProjectRow, ...prev]);
+            setProjects((prev) => {
+              if (prev.some((p) => p.id === payload.new.id)) return prev;
+              return [payload.new as ProjectRow, ...prev];
+            });
           } else if (payload.eventType === "UPDATE") {
             setProjects((prev) =>
-              prev.map((item) => (item.id === payload.new.id ? (payload.new as ProjectRow) : item))
+              prev.map((p) => (p.id === payload.new.id ? (payload.new as ProjectRow) : p))
             );
           } else if (payload.eventType === "DELETE") {
-            setProjects((prev) => prev.filter((item) => item.id !== payload.old.id));
+            setProjects((prev) => prev.filter((p) => p.id !== payload.old.id));
           }
           setLastSync(new Date());
         }
@@ -135,13 +139,16 @@ export function useRealtimeDashboard() {
         { event: "*", schema: "public", table: "property_images" },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setImages((prev) => [...prev, payload.new as PropertyImageRow]);
+            setImages((prev) => {
+              if (prev.some((img) => img.id === payload.new.id)) return prev;
+              return [...prev, payload.new as PropertyImageRow];
+            });
           } else if (payload.eventType === "UPDATE") {
             setImages((prev) =>
-              prev.map((item) => (item.id === payload.new.id ? (payload.new as PropertyImageRow) : item))
+              prev.map((img) => (img.id === payload.new.id ? (payload.new as PropertyImageRow) : img))
             );
           } else if (payload.eventType === "DELETE") {
-            setImages((prev) => prev.filter((item) => item.id !== payload.old.id));
+            setImages((prev) => prev.filter((img) => img.id !== payload.old.id));
           }
           setLastSync(new Date());
         }
@@ -151,13 +158,16 @@ export function useRealtimeDashboard() {
         { event: "*", schema: "public", table: "property_specs" },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setSpecs((prev) => [...prev, payload.new as PropertySpecRow]);
+            setSpecs((prev) => {
+              if (prev.some((s) => s.id === payload.new.id)) return prev;
+              return [...prev, payload.new as PropertySpecRow];
+            });
           } else if (payload.eventType === "UPDATE") {
             setSpecs((prev) =>
-              prev.map((item) => (item.id === payload.new.id ? (payload.new as PropertySpecRow) : item))
+              prev.map((s) => (s.id === payload.new.id ? (payload.new as PropertySpecRow) : s))
             );
           } else if (payload.eventType === "DELETE") {
-            setSpecs((prev) => prev.filter((item) => item.id !== payload.old.id));
+            setSpecs((prev) => prev.filter((s) => s.id !== payload.old.id));
           }
           setLastSync(new Date());
         }
@@ -172,28 +182,33 @@ export function useRealtimeDashboard() {
           setLastSync(new Date());
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "seo_settings" },
+        (payload) => {
+          if (payload.eventType === "UPDATE" || payload.eventType === "INSERT") {
+            setSeoSettings(payload.new as SeoSettingsRow);
+          }
+          setLastSync(new Date());
+        }
+      )
       .subscribe((status) => {
         setIsConnected(status === "SUBSCRIBED");
       });
 
-    channelRef.current = channel;
-
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
+      supabase.removeChannel(channel);
     };
   }, [fetchAllData, supabase]);
 
-  // 3. Fast Mutations with Instant Optimistic UI + Database Sync
+  // 3. Fast Mutations with Optimistic Updates + Service Role Execution
   const updateEnquiryStatus = async (id: string, status: EnquiryRow["status"]) => {
     setEnquiries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
     try {
-      const { error } = await supabase.from("enquiries").update({ status }).eq("id", id);
-      if (error) throw error;
+      const res = await serverUpdateEnquiryStatus(id, status);
+      if (!res.success) throw new Error(res.error);
     } catch (err: any) {
       console.error("Failed to update enquiry status:", err.message);
-      alert(`Database update error: ${err.message}`);
       fetchAllData();
     }
   };
@@ -201,11 +216,10 @@ export function useRealtimeDashboard() {
   const deleteEnquiry = async (id: string) => {
     setEnquiries((prev) => prev.filter((e) => e.id !== id));
     try {
-      const { error } = await supabase.from("enquiries").delete().eq("id", id);
-      if (error) throw error;
+      const res = await serverDeleteEnquiry(id);
+      if (!res.success) throw new Error(res.error);
     } catch (err: any) {
       console.error("Failed to delete enquiry:", err.message);
-      alert(`Database delete error: ${err.message}`);
       fetchAllData();
     }
   };
@@ -213,11 +227,10 @@ export function useRealtimeDashboard() {
   const deleteProperty = async (id: string) => {
     setProperties((prev) => prev.filter((p) => p.id !== id));
     try {
-      const { error } = await supabase.from("properties").delete().eq("id", id);
-      if (error) throw error;
+      const res = await serverDeleteProperty(id);
+      if (!res.success) throw new Error(res.error);
     } catch (err: any) {
       console.error("Failed to delete property:", err.message);
-      alert(`Database delete error: ${err.message}`);
       fetchAllData();
     }
   };
@@ -225,11 +238,10 @@ export function useRealtimeDashboard() {
   const deleteProject = async (id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
     try {
-      const { error } = await supabase.from("projects").delete().eq("id", id);
-      if (error) throw error;
+      const res = await serverDeleteProject(id);
+      if (!res.success) throw new Error(res.error);
     } catch (err: any) {
       console.error("Failed to delete project:", err.message);
-      alert(`Database delete error: ${err.message}`);
       fetchAllData();
     }
   };
@@ -237,11 +249,10 @@ export function useRealtimeDashboard() {
   const deleteAdmin = async (id: string) => {
     setAdmins((prev) => prev.filter((a) => a.id !== id));
     try {
-      const { error } = await supabase.from("admin_profiles").delete().eq("id", id);
-      if (error) throw error;
+      const res = await serverDeleteAdmin(id);
+      if (!res.success) throw new Error(res.error);
     } catch (err: any) {
       console.error("Failed to delete admin:", err.message);
-      alert(`Database delete error: ${err.message}`);
       fetchAllData();
     }
   };
@@ -249,11 +260,10 @@ export function useRealtimeDashboard() {
   const deleteImage = async (id: string) => {
     setImages((prev) => prev.filter((i) => i.id !== id));
     try {
-      const { error } = await supabase.from("property_images").delete().eq("id", id);
-      if (error) throw error;
+      const res = await serverDeleteImage(id);
+      if (!res.success) throw new Error(res.error);
     } catch (err: any) {
       console.error("Failed to delete image:", err.message);
-      alert(`Database delete error: ${err.message}`);
       fetchAllData();
     }
   };
@@ -261,11 +271,10 @@ export function useRealtimeDashboard() {
   const deleteSpec = async (id: string) => {
     setSpecs((prev) => prev.filter((s) => s.id !== id));
     try {
-      const { error } = await supabase.from("property_specs").delete().eq("id", id);
-      if (error) throw error;
+      const res = await serverDeleteSpec(id);
+      if (!res.success) throw new Error(res.error);
     } catch (err: any) {
       console.error("Failed to delete spec:", err.message);
-      alert(`Database delete error: ${err.message}`);
       fetchAllData();
     }
   };
@@ -278,6 +287,8 @@ export function useRealtimeDashboard() {
     admins,
     enquiries,
     siteSettings,
+    seoSettings,
+    pageSeoList,
     loading,
     isConnected,
     lastSync,

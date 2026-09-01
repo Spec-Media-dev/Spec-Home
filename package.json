@@ -11,6 +11,7 @@
     "test:db": "node scripts/test-db.mjs"
   },
   "dependencies": {
+    "@supabase/server": "^1.5.1",
     "@supabase/supabase-js": "^2.112.4",
     "clsx": "^2.1.1",
     "framer-motion": "^13.1.1",

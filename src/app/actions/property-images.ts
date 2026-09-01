@@ -2,11 +2,15 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PropertyImageRow } from "@/lib/supabase/types";
+import { revalidatePath } from "next/cache";
 
 function isSupabaseConfigured(): boolean {
   return !!(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    (process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
   );
 }
 
@@ -17,10 +21,59 @@ export interface ImageActionResult {
 }
 
 /**
- * Upload a property image.
- * - Enforces max 4 images per property.
- * - Uploads to site-media bucket.
- * - If first image, sets it as cover.
+ * Add image to property by URL (e.g. Unsplash or pre-uploaded CDN/Storage URL).
+ */
+export async function addPropertyImageUrl(
+  propertyId: string,
+  imageUrl: string,
+  isCover: boolean = false
+): Promise<ImageActionResult> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: "Supabase not configured" };
+  }
+
+  try {
+    const supabase = createAdminClient();
+
+    const { count } = await supabase
+      .from("property_images")
+      .select("id", { count: "exact", head: true })
+      .eq("property_id", propertyId);
+
+    const shouldBeCover = isCover || !count || count === 0;
+
+    if (shouldBeCover) {
+      await supabase
+        .from("property_images")
+        .update({ is_cover: false } as any)
+        .eq("property_id", propertyId);
+    }
+
+    const { data, error } = await supabase
+      .from("property_images")
+      .insert({
+        property_id: propertyId,
+        image_url: imageUrl,
+        is_cover: shouldBeCover,
+        display_order: (count ?? 0) + 1,
+      } as any)
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/dashboard-admin/property-images");
+
+    return { success: true, data: data as PropertyImageRow };
+  } catch (err: any) {
+    console.error("[addPropertyImageUrl]", err);
+    return { success: false, error: err?.message || "Failed to add image" };
+  }
+}
+
+/**
+ * Upload a property image file via Base64 into the 'media' storage bucket.
  */
 export async function uploadPropertyImage(
   propertyId: string,
@@ -35,35 +88,40 @@ export async function uploadPropertyImage(
   try {
     const supabase = createAdminClient();
 
-    // Check image count constraint (max 4)
     const { count } = await supabase
       .from("property_images")
       .select("id", { count: "exact", head: true })
       .eq("property_id", propertyId);
 
-    if (count && count >= 4) {
-      return {
-        success: false,
-        error: "Maximum 4 images allowed per property.",
-      };
-    }
+    const base64Data = fileBase64.includes(",") ? fileBase64.split(",")[1] : fileBase64;
+    const buffer = Buffer.from(base64Data, "base64");
+    const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const storagePath = `properties/${propertyId}/${Date.now()}-${cleanFileName}`;
 
-    // Decode base64 and upload to storage
-    const buffer = Buffer.from(fileBase64, "base64");
-    const storagePath = `properties/${propertyId}/${Date.now()}-${fileName}`;
+    const ext = fileName.split(".").pop()?.toLowerCase() || "jpeg";
+    const mimeTypes: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      svg: "image/svg+xml",
+      gif: "image/gif",
+    };
+    const contentType = mimeTypes[ext] || "image/jpeg";
 
+    // Upload to 'media' bucket
     const { error: uploadError } = await supabase.storage
-      .from("site-media")
+      .from("media")
       .upload(storagePath, buffer, {
-        contentType: `image/${fileName.split(".").pop() || "jpeg"}`,
-        upsert: false,
+        contentType,
+        upsert: true,
       });
 
     if (uploadError) {
+      console.error("[uploadPropertyImage] Storage Error:", uploadError.message);
       return { success: false, error: uploadError.message };
     }
 
-    // Determine if this should be cover (first image = cover)
     const isCover = !count || count === 0;
 
     const { data, error } = await supabase
@@ -78,16 +136,19 @@ export async function uploadPropertyImage(
       .single();
 
     if (error) return { success: false, error: error.message };
+
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/dashboard-admin/property-images");
+
     return { success: true, data: data as PropertyImageRow };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[uploadPropertyImage]", err);
-    return { success: false, error: "Failed to upload image" };
+    return { success: false, error: err?.message || "Failed to upload image" };
   }
 }
 
 /**
  * Delete a property image.
- * Removes from both storage and database.
  */
 export async function deletePropertyImage(id: string): Promise<ImageActionResult> {
   if (!isSupabaseConfigured()) {
@@ -97,7 +158,6 @@ export async function deletePropertyImage(id: string): Promise<ImageActionResult
   try {
     const supabase = createAdminClient();
 
-    // Get the image path for storage cleanup
     const { data: imageData } = await supabase
       .from("property_images")
       .select("image_url")
@@ -106,29 +166,25 @@ export async function deletePropertyImage(id: string): Promise<ImageActionResult
 
     const image = imageData as { image_url: string } | null;
 
-    // Delete from DB
-    const { error } = await supabase
-      .from("property_images")
-      .delete()
-      .eq("id", id);
-
+    const { error } = await supabase.from("property_images").delete().eq("id", id);
     if (error) return { success: false, error: error.message };
 
-    // Cleanup storage
-    if (image?.image_url) {
-      await supabase.storage.from("site-media").remove([image.image_url]);
+    if (image?.image_url && !image.image_url.startsWith("http://") && !image.image_url.startsWith("https://")) {
+      await supabase.storage.from("media").remove([image.image_url]);
     }
 
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/dashboard-admin/property-images");
+
     return { success: true };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[deletePropertyImage]", err);
-    return { success: false, error: "Failed to delete image" };
+    return { success: false, error: err?.message || "Failed to delete image" };
   }
 }
 
 /**
- * Set cover image.
- * Ensures exactly one image has is_cover = true for the property.
+ * Set an image as the cover image for its property.
  */
 export async function setCoverImage(
   imageId: string,
@@ -141,13 +197,11 @@ export async function setCoverImage(
   try {
     const supabase = createAdminClient();
 
-    // Unset all covers for this property
     await supabase
       .from("property_images")
       .update({ is_cover: false } as any)
       .eq("property_id", propertyId);
 
-    // Set the new cover
     const { data, error } = await supabase
       .from("property_images")
       .update({ is_cover: true } as any)
@@ -156,9 +210,13 @@ export async function setCoverImage(
       .single();
 
     if (error) return { success: false, error: error.message };
+
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/dashboard-admin/property-images");
+
     return { success: true, data: data as PropertyImageRow };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[setCoverImage]", err);
-    return { success: false, error: "Failed to set cover image" };
+    return { success: false, error: err?.message || "Failed to set cover image" };
   }
 }

@@ -1,8 +1,60 @@
+import React from "react";
+import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Preloader from "@/components/Preloader";
 import CustomCursor from "@/components/CustomCursor";
 import { I18nProvider, Locale } from "@/lib/i18n";
+import { getGlobalSeo, getPageSeo } from "@/lib/queries/seo";
+import { getSiteSettings } from "@/lib/queries/site-settings";
+import { getStorageUrl } from "@/lib/supabase/storage";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const resolvedParams = await params;
+  const isAr = resolvedParams?.locale === "ar";
+
+  const [globalSeo, homeSeo, siteSettings] = await Promise.all([
+    getGlobalSeo(),
+    getPageSeo("home"),
+    getSiteSettings(),
+  ]);
+
+  const brandName = isAr
+    ? siteSettings.brand_name_ar || "سبيك هوم دبي"
+    : siteSettings.brand_name_en || "SPEC Home Dubai";
+
+  const title = isAr
+    ? homeSeo?.meta_title_ar || globalSeo.default_meta_title_ar || globalSeo.website_title_ar || brandName
+    : homeSeo?.meta_title_en || globalSeo.default_meta_title_en || globalSeo.website_title_en || brandName;
+
+  const description = isAr
+    ? homeSeo?.meta_description_ar || globalSeo.default_meta_description_ar || ""
+    : homeSeo?.meta_description_en || globalSeo.default_meta_description_en || "";
+
+  const keywords = isAr
+    ? homeSeo?.keywords_ar || globalSeo.default_keywords_ar || undefined
+    : homeSeo?.keywords_en || globalSeo.default_keywords_en || undefined;
+
+  const ogImage = globalSeo.og_image_path
+    ? getStorageUrl(globalSeo.og_image_path, "site-assets")
+    : undefined;
+
+  return {
+    title: `${title} | ${brandName}`,
+    description,
+    keywords,
+    robots: globalSeo.robots || "index, follow",
+    openGraph: {
+      title,
+      description,
+      images: ogImage ? [{ url: ogImage }] : undefined,
+    },
+  };
+}
 
 export default async function SiteLayout({
   children,

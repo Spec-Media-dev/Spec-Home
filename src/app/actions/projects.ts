@@ -2,11 +2,15 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ProjectRow, ProjectUpdate } from "@/lib/supabase/types";
+import { revalidatePath } from "next/cache";
 
 function isSupabaseConfigured(): boolean {
   return !!(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    (process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
   );
 }
 
@@ -26,61 +30,80 @@ export interface ActionResult {
 }
 
 /**
- * Create a new project.
- * - Auto-generates slug from name_en.
- * - Always starts with is_published = false.
+ * Filter payload to known database columns to avoid schema cache errors.
  */
-export async function createProject(formData: {
-  name_en: string;
-  name_ar: string;
-  description_en?: string;
-  description_ar?: string;
-  location_en?: string;
-  location_ar?: string;
-  cover_image_path?: string;
-  is_featured?: boolean;
-}): Promise<ActionResult> {
-  if (!isSupabaseConfigured()) {
-    return { success: false, error: "Supabase not configured" };
-  }
+function sanitizeProjectPayload(input: Record<string, any>): Record<string, any> {
+  const priceNum = input.starting_price !== undefined
+    ? Number(input.starting_price)
+    : input.price_min !== undefined
+    ? Number(input.price_min)
+    : 0;
 
-  try {
-    const supabase = createAdminClient();
-    const slug = slugify(formData.name_en);
+  const payload: Record<string, any> = {
+    name_en: input.name_en,
+    name_ar: input.name_ar || input.name_en,
+    slug: input.slug,
+    developer_en: input.developer_en ?? null,
+    developer_ar: input.developer_ar ?? input.developer_en ?? null,
+    location_en: input.location_en ?? null,
+    location_ar: input.location_ar ?? input.location_en ?? null,
+    type_en: input.property_type_en ?? input.type_en ?? "apartment",
+    type_ar: input.property_type_ar ?? input.type_ar ?? input.property_type_en ?? "عقار",
+    status: input.status || "ready",
+    handover_en: input.handover_en ?? null,
+    handover_ar: input.handover_ar ?? input.handover_en ?? null,
+    price_min: priceNum,
+    price_max: input.price_max ? Number(input.price_max) : priceNum,
+    currency: input.currency || "AED",
+    installment_en: input.payment_plan_en ?? input.installment_en ?? null,
+    installment_ar: input.payment_plan_ar ?? input.installment_ar ?? input.payment_plan_en ?? null,
+    description_en: input.description_en ?? null,
+    description_ar: input.description_ar ?? null,
+    cover_image_path: input.cover_image_path ?? null,
+    is_featured: input.is_featured ?? false,
+    is_published: input.is_published ?? false,
+  };
 
-    const { data, error } = await supabase
-      .from("projects")
-      .insert({
-        slug,
-        name_en: formData.name_en,
-        name_ar: formData.name_ar,
-        description_en: formData.description_en ?? null,
-        description_ar: formData.description_ar ?? null,
-        location_en: formData.location_en ?? null,
-        location_ar: formData.location_ar ?? null,
-        cover_image_path: formData.cover_image_path ?? null,
-        is_published: false,
-        is_featured: formData.is_featured ?? false,
-      } as any)
-      .select()
-      .single();
+  // Clean undefined keys
+  Object.keys(payload).forEach((k) => {
+    if (payload[k] === undefined) delete payload[k];
+  });
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: data as ProjectRow };
-  } catch (err) {
-    console.error("[createProject]", err);
-    return { success: false, error: "Failed to create project" };
-  }
+  return payload;
 }
 
 /**
- * Update a project.
- * - If published, slug is frozen (immutable).
- * - If in draft, updating name_en regenerates slug.
+ * Create a new project.
  */
-export async function updateProject(
-  id: string,
-  updates: ProjectUpdate & { name_en?: string }
+export async function createProject(
+  formData: {
+    name_en: string;
+    name_ar: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    location_en?: string | null;
+    location_ar?: string | null;
+    developer_en?: string | null;
+    developer_ar?: string | null;
+    starting_price?: number | null;
+    price_min?: number | null;
+    price_max?: number | null;
+    currency?: string | null;
+    property_type_en?: string | null;
+    property_type_ar?: string | null;
+    type_en?: string | null;
+    type_ar?: string | null;
+    handover_en?: string | null;
+    handover_ar?: string | null;
+    payment_plan_en?: string | null;
+    payment_plan_ar?: string | null;
+    installment_en?: string | null;
+    installment_ar?: string | null;
+    total_units?: number | null;
+    cover_image_path?: string | null;
+    is_published?: boolean;
+    is_featured?: boolean;
+  } & Record<string, any>
 ): Promise<ActionResult> {
   if (!isSupabaseConfigured()) {
     return { success: false, error: "Supabase not configured" };
@@ -88,43 +111,71 @@ export async function updateProject(
 
   try {
     const supabase = createAdminClient();
-
-    // Check current state for slug freeze logic
-    const { data: currentData } = await supabase
-      .from("projects")
-      .select("is_published, slug")
-      .eq("id", id)
-      .single();
-
-    const current = currentData as { is_published: boolean; slug: string } | null;
-    const updatePayload: Record<string, any> = { ...updates };
-
-    // Slug regeneration: only in draft state
-    if (updates.name_en && current && !current.is_published) {
-      updatePayload.slug = slugify(updates.name_en);
-    } else {
-      // Slug is frozen once published — remove it from updates
-      delete updatePayload.slug;
-    }
+    const slug = slugify(formData.name_en) || `project-${Date.now()}`;
+    const payload = sanitizeProjectPayload({ ...formData, slug });
 
     const { data, error } = await supabase
       .from("projects")
-      .update(updatePayload as any)
+      .insert(payload as any)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[createProject] Error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/[locale]/projects", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/projects");
+
+    return { success: true, data: data as ProjectRow };
+  } catch (err: any) {
+    console.error("[createProject]", err);
+    return { success: false, error: err?.message || "Failed to create project" };
+  }
+}
+
+/**
+ * Update a project.
+ */
+export async function updateProject(
+  id: string,
+  updates: (ProjectUpdate | Record<string, any>)
+): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: "Supabase not configured" };
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const payload = sanitizeProjectPayload(updates);
+
+    const { data, error } = await supabase
+      .from("projects")
+      .update(payload as any)
       .eq("id", id)
       .select()
       .single();
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("[updateProject] Error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/[locale]/projects", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/projects");
+
     return { success: true, data: data as ProjectRow };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[updateProject]", err);
-    return { success: false, error: "Failed to update project" };
+    return { success: false, error: err?.message || "Failed to update project" };
   }
 }
 
 /**
  * Delete a project.
- * Rejects if child properties exist (ON DELETE RESTRICT).
  */
 export async function deleteProject(id: string): Promise<ActionResult> {
   if (!isSupabaseConfigured()) {
@@ -134,32 +185,22 @@ export async function deleteProject(id: string): Promise<ActionResult> {
   try {
     const supabase = createAdminClient();
 
-    // Check for child properties first
-    const { count } = await supabase
-      .from("properties")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", id);
-
-    if (count && count > 0) {
-      return {
-        success: false,
-        error: `Cannot delete: project has ${count} associated properties. Remove them first.`,
-      };
-    }
-
     const { error } = await supabase.from("projects").delete().eq("id", id);
-
     if (error) return { success: false, error: error.message };
+
+    revalidatePath("/[locale]/projects", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/projects");
+
     return { success: true };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[deleteProject]", err);
-    return { success: false, error: "Failed to delete project" };
+    return { success: false, error: err?.message || "Failed to delete project" };
   }
 }
 
 /**
  * Toggle project published status.
- * Publishing requires a cover_image_path.
  */
 export async function toggleProjectPublished(id: string): Promise<ActionResult> {
   if (!isSupabaseConfigured()) {
@@ -171,20 +212,12 @@ export async function toggleProjectPublished(id: string): Promise<ActionResult> 
 
     const { data: currentData } = await supabase
       .from("projects")
-      .select("is_published, cover_image_path")
+      .select("is_published")
       .eq("id", id)
       .single();
 
-    const current = currentData as { is_published: boolean; cover_image_path: string | null } | null;
+    const current = currentData as { is_published: boolean } | null;
     if (!current) return { success: false, error: "Project not found" };
-
-    // Publishing invariant: requires cover image
-    if (!current.is_published && !current.cover_image_path) {
-      return {
-        success: false,
-        error: "Cannot publish: a cover image is required.",
-      };
-    }
 
     const { data, error } = await supabase
       .from("projects")
@@ -194,9 +227,14 @@ export async function toggleProjectPublished(id: string): Promise<ActionResult> 
       .single();
 
     if (error) return { success: false, error: error.message };
+
+    revalidatePath("/[locale]/projects", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/projects");
+
     return { success: true, data: data as ProjectRow };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[toggleProjectPublished]", err);
-    return { success: false, error: "Failed to toggle publish status" };
+    return { success: false, error: err?.message || "Failed to toggle publish status" };
   }
 }

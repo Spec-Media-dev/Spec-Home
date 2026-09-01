@@ -14,7 +14,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { submitEnquiry } from "@/app/actions/enquiries";
 import type { EnquiryRow } from "@/lib/supabase/types";
 
 export default function EnquiriesPage() {
@@ -38,19 +38,16 @@ export default function EnquiriesPage() {
   const [phone, setPhone] = useState("+971 ");
   const [message, setMessage] = useState("");
 
-  const supabase = getSupabaseBrowserClient();
-
   const handleAddManualLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) return;
 
     try {
-      await supabase.from("enquiries").insert({
+      await submitEnquiry({
         name,
         email,
         phone,
         message: message || "Direct client enquiry registered via admin portal.",
-        status: "new",
       });
     } catch (err) {
       console.error("Failed to insert lead:", err);
@@ -64,12 +61,20 @@ export default function EnquiriesPage() {
   };
 
   const filteredEnquiries = enquiries.filter((enq) => {
-    const matchesTab = activeTab === "All" || enq.status === activeTab.toLowerCase();
+    const sTerm = (searchTerm || "").toLowerCase();
+    const eStatus = (enq.status || "").toLowerCase();
+    const eName = (enq.name || "").toLowerCase();
+    const eEmail = (enq.email || "").toLowerCase();
+    const ePhone = (enq.phone || "").toLowerCase();
+    const eMsg = (enq.message || "").toLowerCase();
+
+    const matchesTab = activeTab === "All" || eStatus === activeTab.toLowerCase();
     const matchesSearch =
-      enq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enq.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enq.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enq.message.toLowerCase().includes(searchTerm.toLowerCase());
+      !sTerm ||
+      eName.includes(sTerm) ||
+      eEmail.includes(sTerm) ||
+      ePhone.includes(sTerm) ||
+      eMsg.includes(sTerm);
     return matchesTab && matchesSearch;
   });
 

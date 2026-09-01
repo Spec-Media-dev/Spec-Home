@@ -1,69 +1,95 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { staggerContainer } from "@/theme/animations";
 import PropertyCard from "./PropertyCard";
 import { useI18n } from "@/lib/i18n";
+import { getFeaturedProperties } from "@/lib/queries/properties";
+import { getStorageUrl } from "@/lib/supabase/storage";
+import type { PropertyRow } from "@/lib/supabase/types";
 
 export default function SelectedOpportunities() {
   const { locale, t } = useI18n();
+  const [properties, setProperties] = useState<(PropertyRow & { cover_image?: string })[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const properties = [
-    {
-      title: locale === "ar" ? "بنتهاوس سيغنتشر" : "Signature Penthouse",
-      location: locale === "ar" ? "نخلة جميرا" : "Palm Jumeirah",
-      price: locale === "ar" ? "25,000,000 درهم" : "AED 25,000,000",
-      plan: "60/40",
-      image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=1200&auto=format&fit=crop",
-      href: `/${locale}/properties/signature-penthouse`
-    },
-    {
-      title: locale === "ar" ? "فيلا غولف إستيت" : "Golf Estate Villa",
-      location: locale === "ar" ? "دبي هيلز إستيت" : "Dubai Hills Estate",
-      price: locale === "ar" ? "18,500,000 درهم" : "AED 18,500,000",
-      plan: "70/30",
-      image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?q=80&w=1200&auto=format&fit=crop",
-      href: `/${locale}/properties/golf-estate-villa`
-    },
-    {
-      title: locale === "ar" ? "سكاي مانشن" : "Sky Mansion",
-      location: locale === "ar" ? "الخليج التجاري" : "Business Bay",
-      price: locale === "ar" ? "12,000,000 درهم" : "AED 12,000,000",
-      plan: "50/50",
-      image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=1200&auto=format&fit=crop",
-      href: `/${locale}/properties/sky-mansion`
-    },
-    {
-      title: locale === "ar" ? "واجهة مائية فاخرة" : "Luxury Waterfront",
-      location: locale === "ar" ? "دبي مارينا" : "Dubai Marina",
-      price: locale === "ar" ? "8,900,000 درهم" : "AED 8,900,000",
-      plan: "80/20",
-      image: "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?q=80&w=1200&auto=format&fit=crop",
-      href: `/${locale}/properties/luxury-waterfront`
+  useEffect(() => {
+    async function loadFeatured() {
+      try {
+        const data = await getFeaturedProperties();
+        setProperties(data || []);
+      } catch (err) {
+        console.error("Failed to load featured properties:", err);
+      } finally {
+        setLoading(false);
+      }
     }
-  ];
+    loadFeatured();
+  }, []);
+
+  const formatPrice = (price: number, currency: string = "AED") => {
+    if (price >= 1000000) {
+      return locale === "ar"
+        ? `${(price / 1000000).toFixed(1)} مليون ${currency === "AED" ? "درهم" : currency}`
+        : `${currency} ${(price / 1000000).toFixed(1)}M`;
+    }
+    return locale === "ar"
+      ? `${price.toLocaleString()} ${currency === "AED" ? "درهم" : currency}`
+      : `${currency} ${price.toLocaleString()}`;
+  };
 
   return (
     <section id="buy" className="py-32 bg-background w-full relative">
       <div className="container mx-auto px-6 max-w-7xl">
         <div className="mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">{t.selectedOpportunities.title}</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+            {t.selectedOpportunities.title}
+          </h2>
           <p className="text-foreground/60 text-lg max-w-2xl">
             {t.selectedOpportunities.subtitle}
           </p>
         </div>
 
-        <motion.div 
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={staggerContainer}
-          className="grid grid-cols-1 md:grid-cols-2 gap-8"
-        >
-          {properties.map((prop, idx) => (
-            <PropertyCard key={idx} {...prop} />
-          ))}
-        </motion.div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="w-full h-[450px] rounded-3xl bg-card border border-border animate-pulse" />
+            ))}
+          </div>
+        ) : properties.length > 0 ? (
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={staggerContainer}
+            className="grid grid-cols-1 md:grid-cols-2 gap-8"
+          >
+            {properties.map((prop) => (
+              <PropertyCard
+                key={prop.id}
+                title={locale === "ar" ? prop.title_ar || prop.title_en : prop.title_en}
+                location={
+                  locale === "ar"
+                    ? prop.property_type_ar || prop.property_type_en
+                    : prop.property_type_en
+                }
+                price={formatPrice(Number(prop.price), prop.currency || "AED")}
+                plan={
+                  locale === "ar"
+                    ? prop.payment_plan_ar || prop.payment_plan_en || "50 / 50"
+                    : prop.payment_plan_en || "50 / 50"
+                }
+                image={getStorageUrl(prop.cover_image, "property-images")}
+                href={`/${locale}/properties/${prop.slug}`}
+              />
+            ))}
+          </motion.div>
+        ) : (
+          <div className="py-16 text-center text-foreground/50 border border-dashed border-border rounded-3xl bg-card/30">
+            <p className="text-base">{locale === "ar" ? "لا توجد عقارات مميزة حالياً." : "No featured opportunities currently available."}</p>
+          </div>
+        )}
       </div>
     </section>
   );

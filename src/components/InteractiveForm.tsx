@@ -17,16 +17,19 @@ function InteractiveFormComponent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!value) return;
+    if (!value.trim()) return;
     
     setStatus("loading");
     setErrorMsg("");
 
+    const isEmail = value.includes("@") && value.includes(".");
+    const isPhone = /^[+\d\s-]{7,}$/.test(value.trim());
+
     const result = await submitEnquiry({
-      name: "Private Opportunities Inquiry",
-      email: "inquiry@spechome.com",
-      phone: "+971 00 000 0000",
-      message: `Interest in: ${value}`,
+      name: isEmail ? value.split("@")[0] : "VIP Inbound Lead",
+      email: isEmail ? value.trim() : "client.interest@spechome.com",
+      phone: isPhone ? value.trim() : "+971 50 000 0000",
+      message: `Private Consultation Request: ${value.trim()}`,
       company, // Honeypot
     });
 
@@ -40,7 +43,7 @@ function InteractiveFormComponent() {
 
   return (
     <section id="sell" className="py-32 bg-background w-full relative flex justify-center overflow-hidden min-h-[600px] items-center">
-      {/* High performance hardware-accelerated ambient glow (radial gradient instead of expensive per-frame Gaussian blur filter) */}
+      {/* High performance hardware-accelerated ambient glow */}
       <div 
         aria-hidden="true"
         className="absolute w-[500px] h-[500px] rounded-full pointer-events-none opacity-20 dark:opacity-15 -z-10 gpu-layer"

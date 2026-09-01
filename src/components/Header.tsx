@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Globe, Search, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import SearchModal from "./SearchModal";
 
 export const FriesIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
   <svg
@@ -35,10 +36,10 @@ export default function Header() {
   const [mounted, setMounted] = useState(false);
   const { locale, t, toggleLocale } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   // Handle hydration mismatch
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -86,19 +87,19 @@ export default function Header() {
 
         {/* Header Action Buttons */}
         <motion.div variants={fadeUp} className="flex items-center gap-2 md:gap-4">
-          <Link
-            href={`/${locale}/search`}
-            className="p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground"
+          <button
+            onClick={() => setSearchModalOpen(true)}
+            className="p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground cursor-pointer"
             aria-label={t.nav.search}
             id="nav-search-icon"
           >
             <Search size={18} />
-          </Link>
+          </button>
 
           {mounted && (
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground"
+              className="p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground cursor-pointer"
               aria-label="Toggle Theme"
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
@@ -107,7 +108,7 @@ export default function Header() {
 
           <button
             onClick={toggleLocale}
-            className="flex items-center gap-1.5 p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground text-xs font-semibold tracking-wider uppercase"
+            className="flex items-center gap-1.5 p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground text-xs font-semibold tracking-wider uppercase cursor-pointer"
           >
             <Globe size={16} />
             {locale === "en" ? "AR" : "EN"}
@@ -122,7 +123,7 @@ export default function Header() {
           {/* Mobile Menu Toggle Button (Fries Icon) */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground md:hidden flex items-center justify-center"
+            className="p-2 rounded-full hover:bg-foreground/10 transition-colors text-foreground md:hidden flex items-center justify-center cursor-pointer"
             aria-label="Toggle Mobile Menu"
           >
             {mobileMenuOpen ? <X size={20} /> : <FriesIcon size={20} />}
@@ -141,6 +142,17 @@ export default function Header() {
             className="fixed inset-0 z-40 bg-background/95 dark:bg-black/95 backdrop-blur-xl md:hidden pt-24 px-8 pb-12 flex flex-col justify-between"
           >
             <div className="flex flex-col gap-6 mt-4">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setSearchModalOpen(true);
+                }}
+                className="flex items-center gap-3 text-left text-xl font-semibold text-accent"
+              >
+                <Search size={22} />
+                <span>{t.nav.search}</span>
+              </button>
+
               {links.map((link) => (
                 <Link
                   key={link.href}
@@ -163,6 +175,9 @@ export default function Header() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Search Modal Overlay */}
+      <SearchModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
     </>
   );
 }

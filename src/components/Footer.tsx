@@ -22,7 +22,6 @@ export default function Footer() {
           <ul className="flex flex-col gap-2 text-sm">
             <li><Link href={`/${locale}/properties`} className="hover:text-foreground transition-colors">{t.footer.allProperties}</Link></li>
             <li><Link href={`/${locale}/projects`} className="hover:text-foreground transition-colors">{t.footer.ourProjects}</Link></li>
-            <li><Link href={`/${locale}/search`} className="hover:text-foreground transition-colors">{t.footer.searchMap}</Link></li>
           </ul>
         </div>
         

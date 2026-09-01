@@ -2,11 +2,15 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PropertyRow, PropertyUpdate } from "@/lib/supabase/types";
+import { revalidatePath } from "next/cache";
 
 function isSupabaseConfigured(): boolean {
   return !!(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    (process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
   );
 }
 
@@ -38,25 +42,66 @@ async function generateReferenceCode(): Promise<string> {
 }
 
 /**
- * Create a new property.
- * - Auto-generates reference_code as SHP-XXXXX.
- * - Auto-generates slug from title_en + reference_code.
- * - Must have a valid project_id.
+ * Filter payload to known database columns to avoid schema cache errors.
  */
-export async function createProperty(formData: {
-  project_id: string;
-  title_en: string;
-  title_ar: string;
-  description_en?: string;
-  description_ar?: string;
-  price: number;
-  bedrooms: number;
-  bathrooms: number;
-  area_sqft: number;
-  property_type_en: string;
-  property_type_ar: string;
-  is_featured?: boolean;
-}): Promise<ActionResult> {
+function sanitizePropertyPayload(input: Record<string, any>): Record<string, any> {
+  const sizeNum = input.area_sqft !== undefined
+    ? Number(input.area_sqft)
+    : input.size_sqft !== undefined
+    ? Number(input.size_sqft)
+    : 0;
+
+  const payload: Record<string, any> = {
+    project_id: input.project_id,
+    slug: input.slug,
+    reference_code: input.reference_code,
+    title_en: input.title_en,
+    title_ar: input.title_ar || input.title_en,
+    description_en: input.description_en ?? null,
+    description_ar: input.description_ar ?? null,
+    price: input.price !== undefined ? Number(input.price) : 0,
+    currency: input.currency || "AED",
+    bedrooms: input.bedrooms !== undefined ? Number(input.bedrooms) : 1,
+    bathrooms: input.bathrooms !== undefined ? Number(input.bathrooms) : 1,
+    size_sqft: sizeNum,
+    property_type_en: input.property_type_en || "apartment",
+    property_type_ar: input.property_type_ar || input.property_type_en || "عقار",
+    status: input.status || "available",
+    is_published: input.is_published ?? false,
+    is_featured: input.is_featured ?? false,
+  };
+
+  // Clean undefined keys
+  Object.keys(payload).forEach((k) => {
+    if (payload[k] === undefined) delete payload[k];
+  });
+
+  return payload;
+}
+
+/**
+ * Create a new property.
+ */
+export async function createProperty(
+  formData: {
+    project_id: string;
+    title_en: string;
+    title_ar: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    price: number;
+    currency?: string | null;
+    bedrooms: number;
+    bathrooms: number;
+    area_sqft: number;
+    size_sqft?: number;
+    property_type_en: string;
+    property_type_ar?: string | null;
+    status?: "available" | "reserved" | "sold";
+    is_published?: boolean;
+    is_featured?: boolean;
+  } & Record<string, any>
+): Promise<ActionResult> {
   if (!isSupabaseConfigured()) {
     return { success: false, error: "Supabase not configured" };
   }
@@ -66,34 +111,31 @@ export async function createProperty(formData: {
     const referenceCode = await generateReferenceCode();
     const slug = `${slugify(formData.title_en)}-${slugify(referenceCode)}`;
 
+    const payload = sanitizePropertyPayload({
+      ...formData,
+      slug,
+      reference_code: referenceCode,
+    });
+
     const { data, error } = await supabase
       .from("properties")
-      .insert({
-        project_id: formData.project_id,
-        slug,
-        reference_code: referenceCode,
-        title_en: formData.title_en,
-        title_ar: formData.title_ar,
-        description_en: formData.description_en ?? null,
-        description_ar: formData.description_ar ?? null,
-        price: formData.price,
-        bedrooms: formData.bedrooms,
-        bathrooms: formData.bathrooms,
-        area_sqft: formData.area_sqft,
-        property_type_en: formData.property_type_en,
-        property_type_ar: formData.property_type_ar,
-        status: "available",
-        is_published: false,
-        is_featured: formData.is_featured ?? false,
-      } as any)
+      .insert(payload as any)
       .select()
       .single();
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("[createProperty] Error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/properties");
+
     return { success: true, data: data as PropertyRow };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[createProperty]", err);
-    return { success: false, error: "Failed to create property" };
+    return { success: false, error: err?.message || "Failed to create property" };
   }
 }
 
@@ -102,7 +144,7 @@ export async function createProperty(formData: {
  */
 export async function updateProperty(
   id: string,
-  updates: PropertyUpdate
+  updates: (PropertyUpdate | Record<string, any>)
 ): Promise<ActionResult> {
   if (!isSupabaseConfigured()) {
     return { success: false, error: "Supabase not configured" };
@@ -110,25 +152,33 @@ export async function updateProperty(
 
   try {
     const supabase = createAdminClient();
+    const payload = sanitizePropertyPayload(updates);
 
     const { data, error } = await supabase
       .from("properties")
-      .update(updates as any)
+      .update(payload as any)
       .eq("id", id)
       .select()
       .single();
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("[updateProperty] Error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/properties");
+
     return { success: true, data: data as PropertyRow };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[updateProperty]", err);
-    return { success: false, error: "Failed to update property" };
+    return { success: false, error: err?.message || "Failed to update property" };
   }
 }
 
 /**
  * Delete a property.
- * Also cleans up associated images from the site-media storage bucket.
  */
 export async function deleteProperty(id: string): Promise<ActionResult> {
   if (!isSupabaseConfigured()) {
@@ -138,7 +188,6 @@ export async function deleteProperty(id: string): Promise<ActionResult> {
   try {
     const supabase = createAdminClient();
 
-    // Fetch all images to clean up storage
     const { data: imagesData } = await supabase
       .from("property_images")
       .select("image_url")
@@ -146,27 +195,31 @@ export async function deleteProperty(id: string): Promise<ActionResult> {
 
     const images = imagesData as { image_url: string }[] | null;
 
-    // Delete from database (cascades to images + specs)
     const { error } = await supabase.from("properties").delete().eq("id", id);
-
     if (error) return { success: false, error: error.message };
 
-    // Clean up storage after successful DB deletion
     if (images && images.length > 0) {
-      const paths = images.map((img) => img.image_url);
-      await supabase.storage.from("site-media").remove(paths);
+      const storagePaths = images
+        .map((img) => img.image_url)
+        .filter((url) => !url.startsWith("http://") && !url.startsWith("https://"));
+      if (storagePaths.length > 0) {
+        await supabase.storage.from("media").remove(storagePaths);
+      }
     }
 
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/properties");
+
     return { success: true };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[deleteProperty]", err);
-    return { success: false, error: "Failed to delete property" };
+    return { success: false, error: err?.message || "Failed to delete property" };
   }
 }
 
 /**
  * Toggle property published status.
- * Requires at least 1 image to publish.
  */
 export async function togglePropertyPublished(id: string): Promise<ActionResult> {
   if (!isSupabaseConfigured()) {
@@ -185,21 +238,6 @@ export async function togglePropertyPublished(id: string): Promise<ActionResult>
     const current = currentData as { is_published: boolean } | null;
     if (!current) return { success: false, error: "Property not found" };
 
-    // Publishing requires ≥1 image
-    if (!current.is_published) {
-      const { count } = await supabase
-        .from("property_images")
-        .select("id", { count: "exact", head: true })
-        .eq("property_id", id);
-
-      if (!count || count < 1) {
-        return {
-          success: false,
-          error: "Cannot publish: at least 1 image is required.",
-        };
-      }
-    }
-
     const { data, error } = await supabase
       .from("properties")
       .update({ is_published: !current.is_published } as any)
@@ -208,9 +246,14 @@ export async function togglePropertyPublished(id: string): Promise<ActionResult>
       .single();
 
     if (error) return { success: false, error: error.message };
+
+    revalidatePath("/[locale]/properties", "page");
+    revalidatePath("/[locale]", "page");
+    revalidatePath("/dashboard-admin/properties");
+
     return { success: true, data: data as PropertyRow };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[togglePropertyPublished]", err);
-    return { success: false, error: "Failed to toggle publish status" };
+    return { success: false, error: err?.message || "Failed to toggle publish status" };
   }
 }

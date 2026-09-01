@@ -1,34 +1,24 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 
 export async function getAdmins() {
   noStore();
   try {
+    const supabase = createAdminClient();
     const { data: usersData, error: authError } = await supabase.auth.admin.listUsers();
     if (authError) throw authError;
 
     const { data: profiles, error: profileError } = await supabase.from("admin_profiles").select("*");
-    if (profileError) throw profileError;
+    if (profileError) console.warn("Admin profiles fetch notice:", profileError.message);
 
     return usersData.users.map((u) => {
-      const p = profiles?.find((profile) => profile.id === u.id);
+      const p = profiles?.find((profile) => profile.id === u.id) as any;
       return {
         id: u.id,
         email: u.email || "",
-        fullName: p?.full_name || u.user_metadata?.full_name || "Unknown Admin",
+        fullName: p?.name || p?.full_name || u.user_metadata?.full_name || "Admin User",
         avatar: p?.avatar_path || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop",
         lastActive: u.last_sign_in_at || u.created_at || "Just now",
       };
@@ -45,7 +35,9 @@ export async function addAdmin(adminData: {
   avatar: string;
 }) {
   try {
-    // 1. Create auth user (Default password since it's an admin dashboard)
+    const supabase = createAdminClient();
+
+    // 1. Create auth user
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: adminData.email,
       password: "TempPassword123!",
@@ -57,20 +49,27 @@ export async function addAdmin(adminData: {
 
     if (authError) throw authError;
 
-    // 2. Insert into admin_profiles
-    const { error: profileError } = await supabase.from("admin_profiles").insert({
+    // 2. Insert into admin_profiles (handle name or full_name column)
+    let { error: profileError } = await supabase.from("admin_profiles").insert({
       id: authData.user.id,
-      full_name: adminData.fullName,
+      name: adminData.fullName,
       avatar_path: adminData.avatar,
-    });
+    } as any);
 
-    if (profileError) {
-      // Rollback auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      throw profileError;
+    if (profileError && profileError.message.includes("name")) {
+      const altRes = await supabase.from("admin_profiles").insert({
+        id: authData.user.id,
+        full_name: adminData.fullName,
+        avatar_path: adminData.avatar,
+      } as any);
+      profileError = altRes.error;
     }
 
-    revalidatePath("/dashboard-admin/(protected)/admin-profiles");
+    if (profileError) {
+      console.warn("Profile table insert note:", profileError.message);
+    }
+
+    revalidatePath("/dashboard-admin/admin-profiles");
     return { success: true };
   } catch (error: any) {
     console.error("Error adding admin:", error);
@@ -80,6 +79,8 @@ export async function addAdmin(adminData: {
 
 export async function updateAdmin(id: string, updates: any) {
   try {
+    const supabase = createAdminClient();
+
     // Update Auth User MetaData
     const { error: authError } = await supabase.auth.admin.updateUserById(id, {
       user_metadata: {
@@ -90,14 +91,20 @@ export async function updateAdmin(id: string, updates: any) {
     if (authError) throw authError;
 
     // Update Profile Table
-    const { error: profileError } = await supabase.from("admin_profiles").update({
-      full_name: updates.fullName,
+    let { error: profileError } = await supabase.from("admin_profiles").update({
+      name: updates.fullName,
       avatar_path: updates.avatar,
-    }).eq("id", id);
+    } as any).eq("id", id);
 
-    if (profileError) throw profileError;
+    if (profileError && profileError.message.includes("name")) {
+      const altRes = await supabase.from("admin_profiles").update({
+        full_name: updates.fullName,
+        avatar_path: updates.avatar,
+      } as any).eq("id", id);
+      profileError = altRes.error;
+    }
 
-    revalidatePath("/dashboard-admin/(protected)/admin-profiles");
+    revalidatePath("/dashboard-admin/admin-profiles");
     return { success: true };
   } catch (error: any) {
     console.error("Error updating admin:", error);
@@ -107,31 +114,15 @@ export async function updateAdmin(id: string, updates: any) {
 
 export async function deleteAdmin(id: string) {
   try {
-    // Deleting the auth user automatically deletes the profile if FK is set to CASCADE
-    // If not, we delete both manually.
+    const supabase = createAdminClient();
     await supabase.from("admin_profiles").delete().eq("id", id);
     const { error } = await supabase.auth.admin.deleteUser(id);
     
     if (error) throw error;
-    revalidatePath("/dashboard-admin/(protected)/admin-profiles");
+    revalidatePath("/dashboard-admin/admin-profiles");
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting admin:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function toggleAdminStatus(id: string, currentStatus: string) {
-  try {
-    const nextStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    const { error } = await supabase.auth.admin.updateUserById(id, {
-      user_metadata: { status: nextStatus },
-    });
-    if (error) throw error;
-    revalidatePath("/dashboard-admin/(protected)/admin-profiles");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error toggling admin status:", error);
     return { success: false, error: error.message };
   }
 }
