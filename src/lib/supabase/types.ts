@@ -70,6 +70,9 @@ export interface PropertyRow {
   bathrooms: number;
   area_sqft?: number;
   size_sqft?: number;
+  location?: string | null;
+  location_en?: string | null;
+  location_ar?: string | null;
   property_type_en: string;
   property_type_ar: string;
   status: "available" | "reserved" | "sold";
