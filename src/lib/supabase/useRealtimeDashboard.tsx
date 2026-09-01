@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getFullDashboardData } from "@/app/actions/dashboard";
 import {
@@ -24,7 +24,33 @@ import type {
   PageSeoRow,
 } from "@/lib/supabase/types";
 
-export function useRealtimeDashboard() {
+interface RealtimeDashboardContextType {
+  projects: ProjectRow[];
+  properties: PropertyRow[];
+  images: PropertyImageRow[];
+  specs: PropertySpecRow[];
+  admins: AdminProfileRow[];
+  enquiries: EnquiryRow[];
+  siteSettings: SiteSettingsRow | null;
+  seoSettings: SeoSettingsRow | null;
+  pageSeoList: PageSeoRow[];
+  loading: boolean;
+  isConnected: boolean;
+  lastSync: Date;
+  errorMessage: string | null;
+  refreshData: () => Promise<void>;
+  updateEnquiryStatus: (id: string, status: EnquiryRow["status"]) => Promise<void>;
+  deleteEnquiry: (id: string) => Promise<void>;
+  deleteProperty: (id: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  deleteAdmin: (id: string) => Promise<void>;
+  deleteImage: (id: string) => Promise<void>;
+  deleteSpec: (id: string) => Promise<void>;
+}
+
+const RealtimeDashboardContext = createContext<RealtimeDashboardContextType | null>(null);
+
+export function RealtimeDashboardProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [images, setImages] = useState<PropertyImageRow[]>([]);
@@ -41,7 +67,7 @@ export function useRealtimeDashboard() {
 
   const supabase = getSupabaseBrowserClient();
 
-  // 1. Initial Full Data Fetch — Via Service Role Server Action to bypass client RLS on enquiries and admins
+  // 1. Initial Full Data Fetch
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -68,12 +94,11 @@ export function useRealtimeDashboard() {
     }
   }, []);
 
-  // 2. Realtime WebSocket Subscription with unique channel instance
+  // 2. Realtime WebSocket Subscription with single shared channel
   useEffect(() => {
     fetchAllData();
 
-    // Unique channel per subscription to prevent channel collision
-    const channelName = `dashboard-realtime-${Math.random().toString(36).slice(2, 9)}`;
+    const channelName = `dashboard-realtime-singleton`;
     const channel = supabase.channel(channelName);
 
     channel
@@ -201,8 +226,9 @@ export function useRealtimeDashboard() {
     };
   }, [fetchAllData, supabase]);
 
-  // 3. Fast Mutations with Optimistic Updates + Service Role Execution
+  // 3. Fast Mutations with Optimistic Updates across whole dashboard
   const updateEnquiryStatus = async (id: string, status: EnquiryRow["status"]) => {
+    // Instant optimistic update in shared memory
     setEnquiries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
     try {
       const res = await serverUpdateEnquiryStatus(id, status);
@@ -279,7 +305,7 @@ export function useRealtimeDashboard() {
     }
   };
 
-  return {
+  const value: RealtimeDashboardContextType = {
     projects,
     properties,
     images,
@@ -302,4 +328,18 @@ export function useRealtimeDashboard() {
     deleteImage,
     deleteSpec,
   };
+
+  return (
+    <RealtimeDashboardContext.Provider value={value}>
+      {children}
+    </RealtimeDashboardContext.Provider>
+  );
+}
+
+export function useRealtimeDashboard(): RealtimeDashboardContextType {
+  const context = useContext(RealtimeDashboardContext);
+  if (!context) {
+    throw new Error("useRealtimeDashboard must be used within a RealtimeDashboardProvider");
+  }
+  return context;
 }

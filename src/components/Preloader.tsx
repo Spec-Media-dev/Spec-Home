@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
+import { useSiteSettings } from "@/lib/context/SiteSettingsContext";
 
 export default function Preloader() {
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
+  const { logoUrl, brandName } = useSiteSettings();
 
-  // Only show on the root landing page (e.g., /en or /ar)
-  const isHomePage = pathname === "/en" || pathname === "/ar" || pathname === "/";
+  // Only show on the root landing page (e.g., /en or /ar or /)
+  const isHomePage = pathname === "/en" || pathname === "/ar" || pathname === "/" || pathname === "/en/" || pathname === "/ar/";
 
   useEffect(() => {
     if (!isHomePage) {
@@ -39,7 +41,7 @@ export default function Preloader() {
     show: { opacity: 1, y: 0, transition: { duration: 1 } }
   };
 
-  const text = "Spec Home.";
+  const displayText = brandName || "SPEC Home Dubai";
 
   return (
     <AnimatePresence>
@@ -48,35 +50,64 @@ export default function Preloader() {
           key="preloader"
           className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden pointer-events-none"
         >
-          {/* Text & Counter Layer */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
+          {/* Logo / Text & Counter Layer */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none px-6">
             <motion.div
               initial="hidden"
               animate="show"
-              exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)", transition: { duration: 0.8, ease: "easeInOut" } }}
-              className="flex flex-col items-center"
+              exit={{ opacity: 0, scale: 1.08, filter: "blur(12px)", transition: { duration: 0.8, ease: "easeInOut" } }}
+              className="flex flex-col items-center gap-6"
             >
-              <div className="flex overflow-hidden mb-4 perspective-1000">
-                {text.split("").map((char, index) => (
-                  <motion.h1
-                    key={index}
-                    variants={letterAnimation}
-                    initial="hidden"
-                    animate="show"
-                    transition={{ delay: index * 0.05 }}
-                    className="text-5xl md:text-7xl font-bold tracking-tighter text-white"
-                  >
-                    {char === " " ? "\u00A0" : char}
-                  </motion.h1>
-                ))}
-              </div>
+              {logoUrl ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative flex items-center justify-center"
+                >
+                  {/* Subtle ambient luxury glow behind logo */}
+                  <div className="absolute -inset-4 bg-accent/20 rounded-full blur-xl animate-pulse" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoUrl}
+                    alt={brandName}
+                    className="relative z-10 max-h-20 md:max-h-28 max-w-[240px] md:max-w-[320px] object-contain drop-shadow-2xl"
+                  />
+                </motion.div>
+              ) : (
+                <div className="flex overflow-hidden perspective-1000">
+                  {displayText.split("").map((char, index) => (
+                    <motion.h1
+                      key={index}
+                      variants={letterAnimation}
+                      initial="hidden"
+                      animate="show"
+                      transition={{ delay: index * 0.04 }}
+                      className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-white"
+                    >
+                      {char === " " ? "\u00A0" : char}
+                    </motion.h1>
+                  ))}
+                </div>
+              )}
+
+              {/* Progress percentage & Luxury Loading Bar */}
               <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5, duration: 1 }}
-                className="text-xl md:text-3xl font-light tracking-widest tabular-nums text-accent flex items-center gap-2"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.8 }}
+                className="flex flex-col items-center gap-3"
               >
-                <span>{progress > 100 ? 100 : progress}%</span>
+                <span className="text-sm md:text-base font-light tracking-[0.25em] tabular-nums text-accent">
+                  {progress > 100 ? 100 : progress}%
+                </span>
+                <div className="w-40 md:w-52 h-[2px] bg-white/10 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-accent via-amber-400 to-accent"
+                    style={{ width: `${progress > 100 ? 100 : progress}%` }}
+                    transition={{ ease: "easeOut" }}
+                  />
+                </div>
               </motion.div>
             </motion.div>
           </div>

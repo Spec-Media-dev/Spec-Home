@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "./ThemeProvider";
 import { Sun, Moon, Globe, Search, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { useSiteSettings } from "@/lib/context/SiteSettingsContext";
 import SearchModal from "./SearchModal";
 
 export const FriesIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
@@ -35,6 +36,7 @@ export default function Header() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { locale, t, toggleLocale } = useI18n();
+  const { brandName, logoUrl, announcement } = useSiteSettings();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
 
@@ -68,7 +70,18 @@ export default function Header() {
         )}
       >
         <motion.div variants={fadeUp} className="text-xl font-bold tracking-tighter text-foreground">
-          <Link href={`/${locale}`}>{t.nav.brand}</Link>
+          <Link href={`/${locale}`} className="flex items-center gap-2.5">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt={brandName}
+                className="h-8 max-w-[140px] object-contain"
+              />
+            ) : (
+              <span>{brandName || t.nav.brand}</span>
+            )}
+          </Link>
         </motion.div>
 
         {/* Desktop Navigation */}

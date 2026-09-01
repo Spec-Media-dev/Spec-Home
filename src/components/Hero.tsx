@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform, useMotionValue, useSpring, Variants } 
 import { MousePointerClick } from "lucide-react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
+import { useSiteSettings } from "@/lib/context/SiteSettingsContext";
 
 const SPRING_MOUSE = { damping: 30, stiffness: 120, mass: 0.2 };
 
@@ -40,6 +41,7 @@ const actionsAnimation: Variants = {
 
 function HeroComponent() {
   const { locale, t } = useI18n();
+  const { heroImageUrl } = useSiteSettings();
 
   // Parallax & Scale Scroll — GPU composite only
   const { scrollY } = useScroll();
@@ -95,7 +97,7 @@ function HeroComponent() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2000&auto=format&fit=crop"
+            src={heroImageUrl || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2000&auto=format&fit=crop"}
             alt="Dubai Skyline"
             className="w-full h-full object-cover scale-[1.03]"
             loading="eager"

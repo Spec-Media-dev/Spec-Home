@@ -2,6 +2,7 @@
 
 import { createServerClient } from "@/lib/supabase/server";
 import type { SiteSettingsRow } from "@/lib/supabase/types";
+import { unstable_noStore as noStore } from "next/cache";
 
 function isSupabaseConfigured(): boolean {
   return !!(
@@ -45,6 +46,7 @@ const defaultSettings: SiteSettingsRow = {
  * Tolerates any key name ('general', 'main', 'global') by taking the single configuration row.
  */
 export async function getSiteSettings(): Promise<SiteSettingsRow> {
+  noStore();
   if (!isSupabaseConfigured()) return defaultSettings;
 
   try {

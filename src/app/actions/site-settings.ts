@@ -44,23 +44,55 @@ export async function updateSiteSettings(
 
     const key = (existing as { key: string } | null)?.key || "general";
 
-    const { data, error } = await supabase
+    let payload: Record<string, any> = {
+      key,
+      ...settings,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { data, error } = await supabase
       .from("site_settings")
       .upsert(
-        {
-          key,
-          ...settings,
-          updated_at: new Date().toISOString(),
-        } as any,
+        payload as any,
         { onConflict: "key" }
       )
       .select()
       .single();
 
+    // If Supabase schema cache is missing newly added columns, gracefully retry by stripping them
+    if (error && error.message && error.message.includes("in the schema cache")) {
+      let currentError: any = error;
+      let retries = 0;
+      while (
+        currentError &&
+        currentError.message &&
+        currentError.message.includes("in the schema cache") &&
+        retries < 15
+      ) {
+        retries++;
+        const match = currentError.message.match(/Could not find the '([^']+)' column/);
+        if (match && match[1]) {
+          delete payload[match[1]];
+          const retryRes = await supabase
+            .from("site_settings")
+            .upsert(payload as any, { onConflict: "key" })
+            .select()
+            .single();
+          currentError = retryRes.error;
+          data = retryRes.data;
+        } else {
+          break;
+        }
+      }
+      error = currentError;
+    }
+
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/", "layout");
+    revalidatePath("/[locale]", "layout");
     revalidatePath("/dashboard-admin/settings");
+    revalidatePath("/dashboard-admin/site-settings");
 
     return { success: true, data: data as SiteSettingsRow };
   } catch (err: any) {

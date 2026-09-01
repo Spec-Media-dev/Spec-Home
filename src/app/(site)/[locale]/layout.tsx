@@ -56,6 +56,9 @@ export async function generateMetadata({
   };
 }
 
+import { SiteSettingsProvider } from "@/lib/context/SiteSettingsContext";
+import PageAnnouncementBar from "@/components/PageAnnouncementBar";
+
 export default async function SiteLayout({
   children,
   params,
@@ -65,16 +68,20 @@ export default async function SiteLayout({
 }) {
   const resolvedParams = await params;
   const locale: Locale = resolvedParams?.locale === "ar" ? "ar" : "en";
+  const siteSettings = await getSiteSettings();
 
   return (
     <I18nProvider locale={locale}>
-      <Preloader />
-      <CustomCursor />
-      <Header />
-      <main className="min-h-screen">
-        {children}
-      </main>
-      <Footer />
+      <SiteSettingsProvider settings={siteSettings}>
+        <Preloader />
+        <CustomCursor />
+        <Header />
+        <main className="min-h-screen">
+          <PageAnnouncementBar />
+          {children}
+        </main>
+        <Footer />
+      </SiteSettingsProvider>
     </I18nProvider>
   );
 }

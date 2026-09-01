@@ -31,6 +31,10 @@ export default function AdminSidebar() {
     return () => window.removeEventListener("toggle-admin-sidebar", handleToggle);
   }, []);
 
+  const newLeadsCount = enquiries.filter(
+    (e) => (e.status || "").trim().toLowerCase() === "new"
+  ).length;
+
   const navItems = [
     {
       href: "/dashboard-admin",
@@ -62,7 +66,7 @@ export default function AdminSidebar() {
       href: "/dashboard-admin/enquiries",
       label: "Lead Inbox",
       icon: MessageSquareText,
-      badge: enquiries.filter((e) => e.status === "new").length || undefined,
+      badge: newLeadsCount > 0 ? newLeadsCount : undefined,
     },
     {
       href: "/dashboard-admin/seo",

@@ -9,24 +9,26 @@ import { useI18n } from "@/lib/i18n";
 export default function FeaturedInsights() {
   const { locale, t, isRTL } = useI18n();
 
+  const fallbackImage = "https://images.unsplash.com/photo-1546412414-e1885259563a?q=80&w=1200&auto=format&fit=crop";
+
   const insights = [
     {
       category: t.featuredInsights.article1Cat,
       title: t.featuredInsights.article1Title,
       date: locale === "ar" ? "15 أغسطس 2026" : "August 15, 2026",
-      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2000&auto=format&fit=crop"
+      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1200&auto=format&fit=crop"
     },
     {
       category: t.featuredInsights.article2Cat,
       title: t.featuredInsights.article2Title,
       date: locale === "ar" ? "28 يوليو 2026" : "July 28, 2026",
-      image: "https://images.unsplash.com/photo-1577998634860-2daee2982d33?q=80&w=2000&auto=format&fit=crop"
+      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1200&auto=format&fit=crop"
     },
     {
       category: t.featuredInsights.article3Cat,
       title: t.featuredInsights.article3Title,
       date: locale === "ar" ? "12 يوليو 2026" : "July 12, 2026",
-      image: "https://images.unsplash.com/photo-1526404456930-b7470f441cc4?q=80&w=2000&auto=format&fit=crop"
+      image: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1200&auto=format&fit=crop"
     }
   ];
 
@@ -68,11 +70,17 @@ export default function FeaturedInsights() {
               variants={fadeUp}
               className="group cursor-pointer"
             >
-              <div className="w-full h-64 rounded-3xl overflow-hidden mb-6 relative">
+              <div className="w-full h-64 rounded-3xl overflow-hidden mb-6 relative bg-muted/40">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
                   src={insight.image} 
                   alt={insight.title}
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (target.src !== fallbackImage) {
+                      target.src = fallbackImage;
+                    }
+                  }}
                   className="w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500" />

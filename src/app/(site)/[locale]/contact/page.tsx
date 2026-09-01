@@ -4,9 +4,12 @@ import { motion } from 'framer-motion';
 import { MapPin, Phone, Mail, Loader2, Check } from 'lucide-react';
 import { submitEnquiry } from '@/app/actions/enquiries';
 import { useI18n } from '@/lib/i18n';
+import { useSiteSettings } from '@/lib/context/SiteSettingsContext';
+import { MessageCircle } from 'lucide-react';
 
 export default function ContactPage() {
   const { t } = useI18n();
+  const { officeAddress, contactPhone, contactEmail, whatsappNumber } = useSiteSettings();
   const [formState, setFormState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [formData, setFormData] = useState({
@@ -77,27 +80,53 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground mb-1">{t.contactPage.headOffice}</h3>
-                    <p className="text-foreground/60 text-sm leading-relaxed whitespace-pre-line">{t.contactPage.address}</p>
+                    <p className="text-foreground/60 text-sm leading-relaxed whitespace-pre-line">{officeAddress || t.contactPage.address}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-card rounded-full border border-border text-accent shadow-sm">
-                    <Phone size={20} />
+                {contactPhone && (
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-card rounded-full border border-border text-accent shadow-sm">
+                      <Phone size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-foreground mb-1">{t.contactPage.phone}</h3>
+                      <a href={`tel:${contactPhone.replace(/\s+/g, "")}`} className="text-foreground/80 hover:text-accent text-sm dir-ltr transition-colors">
+                        {contactPhone}
+                      </a>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-foreground mb-1">{t.contactPage.phone}</h3>
-                    <p className="text-foreground/60 text-sm dir-ltr">+971 4 123 4567</p>
+                )}
+                {contactEmail && (
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-card rounded-full border border-border text-accent shadow-sm">
+                      <Mail size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-foreground mb-1">{t.contactPage.email}</h3>
+                      <a href={`mailto:${contactEmail}`} className="text-foreground/80 hover:text-accent text-sm transition-colors">
+                        {contactEmail}
+                      </a>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-card rounded-full border border-border text-accent shadow-sm">
-                    <Mail size={20} />
+                )}
+                {whatsappNumber && (
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-card rounded-full border border-border text-accent shadow-sm">
+                      <MessageCircle size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-foreground mb-1">WhatsApp Concierge</h3>
+                      <a
+                        href={`https://wa.me/${whatsappNumber.replace(/[^\d]/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-foreground/80 hover:text-accent text-sm dir-ltr transition-colors"
+                      >
+                        {whatsappNumber}
+                      </a>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-foreground mb-1">{t.contactPage.email}</h3>
-                    <p className="text-foreground/60 text-sm">info@spechome.com</p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 

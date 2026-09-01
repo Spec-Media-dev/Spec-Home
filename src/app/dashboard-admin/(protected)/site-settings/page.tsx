@@ -14,7 +14,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { updateSiteSettings } from "@/app/actions/site-settings";
 
 // Define a type for local settings state to support missing UI fields
 interface LocalSiteSettings {
@@ -43,13 +43,12 @@ export default function SiteSettingsPage() {
   const [activeTab, setActiveTab] = useState<"general" | "contact" | "social" | "system">("general");
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const supabase = getSupabaseBrowserClient();
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (siteSettings) {
       setSettings({
-        key: siteSettings.key || "global",
+        key: siteSettings.key || "general",
         brand_name_en: siteSettings.brand_name_en || "",
         brand_name_ar: siteSettings.brand_name_ar || "",
         contact_email: siteSettings.contact_email || "",
@@ -60,16 +59,16 @@ export default function SiteSettingsPage() {
         seoTitle: "SPEC - Luxury Real Estate",
         seoDescription: "Exclusive ultra-luxury properties in Dubai",
         facebookUrl: "https://facebook.com",
-        instagramUrl: "https://instagram.com",
-        linkedinUrl: "https://linkedin.com",
-        youtubeUrl: "https://youtube.com",
+        instagramUrl: siteSettings.instagram_url || "https://instagram.com",
+        linkedinUrl: siteSettings.linkedin_url || "https://linkedin.com",
+        youtubeUrl: siteSettings.youtube_url || "https://youtube.com",
         enableVipInquiries: false,
-        maintenanceMode: false,
-        officeAddress: "Dubai, UAE",
+        maintenanceMode: !!siteSettings.maintenance_mode,
+        officeAddress: siteSettings.office_address_en || "Dubai, UAE",
       });
     } else {
       setSettings({
-        key: "global",
+        key: "general",
         brand_name_en: "SPEC Luxury",
         brand_name_ar: "سبيك للعقارات",
         contact_email: "contact@spechome.com",
@@ -98,18 +97,23 @@ export default function SiteSettingsPage() {
     setIsSaving(true);
     
     try {
-      const { error } = await supabase.from("site_settings").upsert({
-        key: "global",
+      const res = await updateSiteSettings({
         brand_name_en: settings.brand_name_en,
         brand_name_ar: settings.brand_name_ar,
         contact_email: settings.contact_email,
         contact_phone: settings.contact_phone,
         whatsapp_number: settings.whatsapp_number,
         logo_path: settings.logo_path,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "key" });
+        instagram_url: settings.instagramUrl,
+        linkedin_url: settings.linkedinUrl,
+        youtube_url: settings.youtubeUrl,
+        office_address_en: settings.officeAddress,
+        maintenance_mode: settings.maintenanceMode,
+      });
       
-      if (error) throw error;
+      if (!res.success) {
+        throw new Error(res.error || "Failed to save settings");
+      }
       
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
