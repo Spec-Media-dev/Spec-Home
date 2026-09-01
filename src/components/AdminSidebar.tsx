@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,6 +8,7 @@ import {
   FolderKanban,
   Building2,
   MessageSquareText,
+  Users,
   Settings,
   LogOut,
   Menu,
@@ -20,6 +21,12 @@ export default function AdminSidebar() {
   const { enquiries } = useRealtimeDashboard();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = () => setIsOpen((prev) => !prev);
+    window.addEventListener("toggle-admin-sidebar", handleToggle);
+    return () => window.removeEventListener("toggle-admin-sidebar", handleToggle);
+  }, []);
 
   const navItems = [
     {
@@ -45,6 +52,11 @@ export default function AdminSidebar() {
       badge: enquiries.filter((e) => e.status === "new").length || undefined,
     },
     {
+      href: "/dashboard-admin/admin-profiles",
+      label: "Admin Access",
+      icon: Users,
+    },
+    {
       href: "/dashboard-admin/settings",
       label: "Settings",
       icon: Settings,
@@ -58,7 +70,7 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile Toggle */}
+      {/* Mobile Floating Toggle Button */}
       <button
         onClick={() => setIsOpen(true)}
         aria-label="Open Menu"
