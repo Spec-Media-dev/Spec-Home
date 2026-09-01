@@ -14,11 +14,13 @@ import {
   Building2,
   Sparkles,
 } from "lucide-react";
-import { AdminStore, PropertyImage, Property } from "@/lib/adminStore";
+import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { PropertyImageRow, PropertyRow } from "@/lib/supabase/types";
 
 export default function PropertyImagesPage() {
-  const [images, setImages] = useState<PropertyImage[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { images, properties, deleteImage, refreshData } = useRealtimeDashboard();
+  const supabase = getSupabaseBrowserClient();
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("All");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,72 +29,54 @@ export default function PropertyImagesPage() {
   // Form State
   const [propertyId, setPropertyId] = useState("");
   const [url, setUrl] = useState("");
-  const [category, setCategory] = useState<PropertyImage["category"]>("Exterior");
-  const [caption, setCaption] = useState("");
   const [isCover, setIsCover] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (properties.length > 0 && !propertyId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPropertyId(properties[0].id);
+    }
+  }, [properties]);
 
-  const loadData = () => {
-    setImages(AdminStore.getPropertyImages());
-    const props = AdminStore.getProperties();
-    setProperties(props);
-    if (props.length > 0 && !propertyId) {
-      setPropertyId(props[0].id);
+  const handleSetCover = async (img: PropertyImageRow) => {
+    const { error } = await supabase.from('property_images').update({ is_cover: false }).eq('property_id', img.property_id);
+    if (!error) {
+      await supabase.from('property_images').update({ is_cover: true }).eq('id', img.id);
+      refreshData();
     }
   };
 
-  const handleSetCover = (img: PropertyImage) => {
-    // Make this cover for its property and unset others
-    const allImages = AdminStore.getPropertyImages().map((i) => {
-      if (i.propertyId === img.propertyId) {
-        return { ...i, isCover: i.id === img.id };
-      }
-      return i;
-    });
-    AdminStore.savePropertyImages(allImages);
-    loadData();
-  };
-
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Delete this image from the gallery?")) {
-      AdminStore.deleteImage(id);
-      loadData();
+      await deleteImage(id);
     }
   };
 
-  const handleAddImage = (e: React.FormEvent) => {
+  const handleAddImage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url || !propertyId) return;
 
-    const prop = properties.find((p) => p.id === propertyId);
-
-    AdminStore.addImage({
-      propertyId,
-      propertyTitle: prop?.title || "Luxury Property",
-      url,
-      category,
-      caption: caption || `${category} photograph of ${prop?.title}`,
-      isCover,
-      order: images.length + 1,
+    const { error } = await supabase.from('property_images').insert({
+      property_id: propertyId,
+      image_url: url,
+      is_cover: isCover,
+      display_order: images.length + 1
     });
 
-    setIsModalOpen(false);
-    setUrl("");
-    setCaption("");
-    setIsCover(false);
-    loadData();
+    if (!error) {
+      setIsModalOpen(false);
+      setUrl("");
+      setIsCover(false);
+      refreshData();
+    }
   };
 
   const filteredImages = images.filter((img) => {
-    const matchesProperty = selectedPropertyId === "All" || img.propertyId === selectedPropertyId;
-    const matchesCategory = selectedCategory === "All" || img.category === selectedCategory;
+    const matchesProperty = selectedPropertyId === "All" || img.property_id === selectedPropertyId;
     const matchesSearch =
-      img.caption.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      img.propertyTitle.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesProperty && matchesCategory && matchesSearch;
+      (properties.find(p => p.id === img.property_id)?.title_en || "Unknown").toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesProperty && matchesSearch;
   });
 
   return (
@@ -144,25 +128,9 @@ export default function PropertyImagesPage() {
             <option value="All">All Properties ({properties.length})</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.title}
+                {p.title_en}
               </option>
             ))}
-          </select>
-
-          {/* Category Dropdown Filter */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-[#1c1c1c] border border-[#2f2f2f] text-neutral-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-accent cursor-pointer"
-          >
-            <option value="All">All Categories</option>
-            <option value="Exterior">Exterior</option>
-            <option value="Interior">Interior</option>
-            <option value="Living Room">Living Room</option>
-            <option value="Master Suite">Master Suite</option>
-            <option value="Pool & Garden">Pool & Garden</option>
-            <option value="View">View</option>
-            <option value="Floorplan">Floorplan</option>
           </select>
         </div>
       </div>
@@ -178,15 +146,15 @@ export default function PropertyImagesPage() {
             <div className="h-44 relative overflow-hidden bg-[#1a1a1a]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={img.url}
-                alt={img.caption}
+                src={img.image_url}
+                alt="Property image"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
 
               {/* Cover badge */}
               <div className="absolute top-2.5 left-2.5">
-                {img.isCover ? (
+                {img.is_cover ? (
                   <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-accent text-black flex items-center gap-1 shadow-md">
                     <Star size={11} className="fill-current" /> Cover Image
                   </span>
@@ -210,30 +178,18 @@ export default function PropertyImagesPage() {
                   <Trash2 size={13} />
                 </button>
               </div>
-
-              {/* Category tag */}
-              <div className="absolute bottom-2.5 left-2.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-[#161616]/90 text-accent border border-accent/30 backdrop-blur-sm">
-                  {img.category}
-                </span>
-              </div>
             </div>
 
             {/* Info Body */}
             <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
-              <div>
-                <div className="text-[11px] text-neutral-500 font-mono flex items-center gap-1 truncate">
-                  <Building2 size={11} className="text-accent" />
-                  {img.propertyTitle}
-                </div>
-                <div className="text-xs font-semibold text-neutral-200 mt-1 line-clamp-2">
-                  {img.caption}
-                </div>
+              <div className="text-[11px] text-neutral-500 font-mono flex items-center gap-1 truncate">
+                <Building2 size={11} className="text-accent" />
+                {(properties.find(p => p.id === img.property_id)?.title_en || "Unknown")}
               </div>
 
               <div className="pt-2 border-t border-[#222222] flex items-center justify-between text-[10px] text-neutral-500 font-mono">
                 <a
-                  href={img.url}
+                  href={img.image_url}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-accent flex items-center gap-1 truncate max-w-[180px]"
@@ -281,14 +237,14 @@ export default function PropertyImagesPage() {
                 >
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.title} ({p.location})
+                      {p.title_en} ({p.location})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">Image URL *</label>
+                <label className="block text-neutral-300 font-medium mb-1">Image URL / Path *</label>
                 <input
                   type="text"
                   required
@@ -298,24 +254,6 @@ export default function PropertyImagesPage() {
                   className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono text-xs"
                 />
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Category</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as PropertyImage["category"])}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="Exterior">Exterior</option>
-                    <option value="Interior">Interior</option>
-                    <option value="Living Room">Living Room</option>
-                    <option value="Master Suite">Master Suite</option>
-                    <option value="Pool & Garden">Pool & Garden</option>
-                    <option value="View">View</option>
-                    <option value="Floorplan">Floorplan</option>
-                  </select>
-                </div>
 
                 <div className="flex items-center gap-2 pt-6">
                   <label className="flex items-center gap-2 text-neutral-300 cursor-pointer">
@@ -328,18 +266,6 @@ export default function PropertyImagesPage() {
                     <span>Set as Primary Cover</span>
                   </label>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Caption / Description</label>
-                <input
-                  type="text"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="e.g. Sunset view over private infinity pool & beach"
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                />
-              </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#262626]">
                 <button

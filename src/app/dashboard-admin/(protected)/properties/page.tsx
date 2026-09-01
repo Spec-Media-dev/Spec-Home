@@ -101,7 +101,7 @@ export default function PropertiesPage() {
 
     try {
       if (editingProperty) {
-        await supabase
+        const { error } = await supabase
           .from("properties")
           .update({
             title_en: titleEn,
@@ -120,8 +120,13 @@ export default function PropertiesPage() {
             is_featured: isFeatured,
           })
           .eq("id", editingProperty.id);
+
+        if (error) {
+          alert(`Database Error: ${error.message}\n\nPlease ensure your Supabase RLS policies allow admin operations.`);
+          return;
+        }
       } else {
-        await supabase.from("properties").insert({
+        const { error } = await supabase.from("properties").insert({
           project_id: projectId,
           slug,
           reference_code: refCode,
@@ -139,9 +144,16 @@ export default function PropertiesPage() {
           is_published: isPublished,
           is_featured: isFeatured,
         });
+
+        if (error) {
+          alert(`Database Error: ${error.message}\n\nPlease ensure your Supabase RLS policies allow admin operations.`);
+          return;
+        }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to save property:", err);
+      alert(`Database Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+      return;
     }
 
     setIsModalOpen(false);
@@ -500,7 +512,7 @@ export default function PropertiesPage() {
                   <label className="block text-neutral-300 font-medium mb-1">Status</label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
+                    onChange={(e) => setStatus(e.target.value as PropertyRow["status"])}
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
                   >
                     <option value="available">Available</option>

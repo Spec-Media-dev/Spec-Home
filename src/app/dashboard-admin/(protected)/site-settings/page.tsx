@@ -7,44 +7,124 @@ import {
   Globe,
   Phone,
   Mail,
-  MapPin,
   Share2,
   ShieldAlert,
   RotateCcw,
   CheckCircle2,
-  Sparkles,
   MessageCircle,
 } from "lucide-react";
-import { AdminStore, SiteSettings } from "@/lib/adminStore";
+import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
+// Define a type for local settings state to support missing UI fields
+interface LocalSiteSettings {
+  key: string;
+  brand_name_en: string;
+  brand_name_ar: string;
+  contact_email: string;
+  contact_phone: string;
+  whatsapp_number: string;
+  logo_path: string;
+  siteUrl?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  linkedinUrl?: string;
+  youtubeUrl?: string;
+  enableVipInquiries?: boolean;
+  maintenanceMode?: boolean;
+  officeAddress?: string;
+}
 
 export default function SiteSettingsPage() {
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const { siteSettings, refreshData } = useRealtimeDashboard();
+  const [settings, setSettings] = useState<LocalSiteSettings | null>(null);
   const [activeTab, setActiveTab] = useState<"general" | "contact" | "social" | "system">("general");
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const supabase = getSupabaseBrowserClient();
 
   useEffect(() => {
-    setSettings(AdminStore.getSiteSettings());
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (siteSettings) {
+      setSettings({
+        key: siteSettings.key || "global",
+        brand_name_en: siteSettings.brand_name_en || "",
+        brand_name_ar: siteSettings.brand_name_ar || "",
+        contact_email: siteSettings.contact_email || "",
+        contact_phone: siteSettings.contact_phone || "",
+        whatsapp_number: siteSettings.whatsapp_number || "",
+        logo_path: siteSettings.logo_path || "",
+        siteUrl: "https://spechome.com",
+        seoTitle: "SPEC - Luxury Real Estate",
+        seoDescription: "Exclusive ultra-luxury properties in Dubai",
+        facebookUrl: "https://facebook.com",
+        instagramUrl: "https://instagram.com",
+        linkedinUrl: "https://linkedin.com",
+        youtubeUrl: "https://youtube.com",
+        enableVipInquiries: false,
+        maintenanceMode: false,
+        officeAddress: "Dubai, UAE",
+      });
+    } else {
+      setSettings({
+        key: "global",
+        brand_name_en: "SPEC Luxury",
+        brand_name_ar: "سبيك للعقارات",
+        contact_email: "contact@spechome.com",
+        contact_phone: "+971 4 123 4567",
+        whatsapp_number: "+971 50 123 4567",
+        logo_path: "",
+        facebookUrl: "https://facebook.com",
+        instagramUrl: "https://instagram.com",
+        linkedinUrl: "https://linkedin.com",
+        youtubeUrl: "https://youtube.com",
+        enableVipInquiries: false,
+        maintenanceMode: false,
+        officeAddress: "Dubai, UAE",
+      });
+    }
+  }, [siteSettings]);
 
-  const handleChange = <K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) => {
+  const handleChange = <K extends keyof LocalSiteSettings>(key: K, value: LocalSiteSettings[K]) => {
     if (!settings) return;
     setSettings({ ...settings, [key]: value });
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settings) return;
-    AdminStore.saveSiteSettings(settings);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    setIsSaving(true);
+    
+    try {
+      const { error } = await supabase.from("site_settings").upsert({
+        key: "global",
+        brand_name_en: settings.brand_name_en,
+        brand_name_ar: settings.brand_name_ar,
+        contact_email: settings.contact_email,
+        contact_phone: settings.contact_phone,
+        whatsapp_number: settings.whatsapp_number,
+        logo_path: settings.logo_path,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "key" });
+      
+      if (error) throw error;
+      
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+      refreshData();
+    } catch (err: unknown) {
+      console.error("Failed to save site settings:", err);
+      alert(`Error saving: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleResetData = () => {
-    if (confirm("Reset all platform data (admins, enquiries, projects, properties, images, specs) to initial seed?")) {
-      AdminStore.resetAll();
-      setSettings(AdminStore.getSiteSettings());
-      alert("All collections successfully restored to initial seed state!");
-      window.location.reload();
+    if (confirm("Reset is disabled in connected database mode.")) {
+      // Disabled
     }
   };
 
@@ -69,10 +149,11 @@ export default function SiteSettingsPage() {
 
         <button
           onClick={handleSave}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto"
+          disabled={isSaving}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent text-black font-semibold text-xs rounded-lg hover:bg-[#e5c158] transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] self-start sm:self-auto disabled:opacity-50"
         >
           <Save size={16} />
-          <span>Save Changes</span>
+          <span>{isSaving ? "Saving..." : "Save Changes"}</span>
         </button>
       </div>
 
@@ -141,58 +222,23 @@ export default function SiteSettingsPage() {
           <div className="space-y-4 text-xs sm:text-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">Platform Brand Name</label>
+                <label className="block text-neutral-300 font-medium mb-1">Brand Name (EN) *</label>
                 <input
                   type="text"
-                  value={settings.siteName}
-                  onChange={(e) => handleChange("siteName", e.target.value)}
+                  value={settings.brand_name_en}
+                  onChange={(e) => handleChange("brand_name_en", e.target.value)}
                   className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
                 />
               </div>
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">Tagline</label>
+                <label className="block text-neutral-300 font-medium mb-1">Brand Name (AR)</label>
                 <input
                   type="text"
-                  value={settings.siteTagline}
-                  onChange={(e) => handleChange("siteTagline", e.target.value)}
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
+                  value={settings.brand_name_ar}
+                  onChange={(e) => handleChange("brand_name_ar", e.target.value)}
+                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white text-right focus:outline-none focus:border-accent"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Display Currency</label>
-                <select
-                  value={settings.currency}
-                  onChange={(e) => handleChange("currency", e.target.value)}
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                >
-                  <option value="AED">AED - United Arab Emirates Dirham</option>
-                  <option value="USD">USD - US Dollar ($)</option>
-                  <option value="EUR">EUR - Euro (€)</option>
-                  <option value="GBP">GBP - British Pound (£)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Announcement Banner</label>
-                <input
-                  type="text"
-                  value={settings.announcementBanner}
-                  onChange={(e) => handleChange("announcementBanner", e.target.value)}
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-neutral-300 font-medium mb-1">SEO Meta Description</label>
-              <textarea
-                rows={3}
-                value={settings.metaDescription}
-                onChange={(e) => handleChange("metaDescription", e.target.value)}
-                className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-              />
             </div>
           </div>
         )}
@@ -202,22 +248,28 @@ export default function SiteSettingsPage() {
           <div className="space-y-4 text-xs sm:text-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">Official Concierge Email</label>
-                <input
-                  type="email"
-                  value={settings.contactEmail}
-                  onChange={(e) => handleChange("contactEmail", e.target.value)}
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono"
-                />
+                <label className="block text-neutral-300 font-medium mb-1">Support Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                  <input
+                    type="email"
+                    value={settings.contact_email}
+                    onChange={(e) => handleChange("contact_email", e.target.value)}
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">Office Telephone Number</label>
-                <input
-                  type="text"
-                  value={settings.contactPhone}
-                  onChange={(e) => handleChange("contactPhone", e.target.value)}
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono"
-                />
+                <label className="block text-neutral-300 font-medium mb-1">Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                  <input
+                    type="tel"
+                    value={settings.contact_phone}
+                    onChange={(e) => handleChange("contact_phone", e.target.value)}
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
               </div>
             </div>
 
@@ -225,12 +277,12 @@ export default function SiteSettingsPage() {
               <div>
                 <label className="block text-neutral-300 font-medium mb-1 flex items-center gap-1.5">
                   <MessageCircle size={14} className="text-emerald-400" />
-                  <span>WhatsApp VIP Number (Direct Chat)</span>
+                  <span>WhatsApp Integration Number</span>
                 </label>
                 <input
                   type="text"
-                  value={settings.whatsappNumber}
-                  onChange={(e) => handleChange("whatsappNumber", e.target.value)}
+                  value={settings.whatsapp_number}
+                  onChange={(e) => handleChange("whatsapp_number", e.target.value)}
                   className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono"
                 />
               </div>

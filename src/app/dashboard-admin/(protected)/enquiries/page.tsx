@@ -208,7 +208,7 @@ export default function EnquiriesPage() {
                     <select
                       value={enq.status}
                       onChange={(e) =>
-                        updateEnquiryStatus(enq.id, e.target.value as any)
+                        updateEnquiryStatus(enq.id, e.target.value as EnquiryRow["status"])
                       }
                       className="bg-[#1c1c1c] border border-[#333333] text-xs text-neutral-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-accent cursor-pointer"
                     >
@@ -317,8 +317,8 @@ export default function EnquiriesPage() {
                   <select
                     value={selectedEnquiry.status}
                     onChange={(e) => {
-                      updateEnquiryStatus(selectedEnquiry.id, e.target.value as any);
-                      setSelectedEnquiry({ ...selectedEnquiry, status: e.target.value as any });
+                      updateEnquiryStatus(selectedEnquiry.id, e.target.value as EnquiryRow["status"]);
+                      setSelectedEnquiry({ ...selectedEnquiry, status: e.target.value as EnquiryRow["status"] });
                     }}
                     className="w-full bg-[#1c1c1c] border border-[#333333] text-xs text-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:border-accent cursor-pointer"
                   >

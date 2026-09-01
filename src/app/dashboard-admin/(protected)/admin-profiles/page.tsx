@@ -5,110 +5,90 @@ import {
   Users,
   Plus,
   Search,
-  Shield,
   Trash2,
   Edit2,
-  CheckCircle2,
-  XCircle,
-  Mail,
-  Phone,
   X,
-  Sparkles,
 } from "lucide-react";
-import { AdminStore, AdminProfile } from "@/lib/adminStore";
+import { getAdmins, addAdmin, updateAdmin, deleteAdmin } from "@/app/actions/admin";
+
+type AdminType = {
+  id: string;
+  fullName: string;
+  email: string;
+  avatar: string;
+  lastActive: string;
+};
 
 export default function AdminProfilesPage() {
-  const [admins, setAdmins] = useState<AdminProfile[]>([]);
+  const [admins, setAdmins] = useState<AdminType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRole, setSelectedRole] = useState<string>("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingAdmin, setEditingAdmin] = useState<AdminProfile | null>(null);
+  const [editingAdmin, setEditingAdmin] = useState<AdminType | null>(null);
 
   // Form state
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<AdminProfile["role"]>("Property Manager");
-  const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState("");
-  const [status, setStatus] = useState<"Active" | "Inactive">("Active");
+
+  const loadAdmins = async () => {
+    const data = await getAdmins();
+    setAdmins(data as AdminType[]);
+  };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAdmins();
   }, []);
-
-  const loadAdmins = () => {
-    setAdmins(AdminStore.getAdmins());
-  };
 
   const openAddModal = () => {
     setEditingAdmin(null);
     setFullName("");
     setEmail("");
-    setRole("Property Manager");
-    setPhone("+971 50 ");
     setAvatar("https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop");
-    setStatus("Active");
     setIsModalOpen(true);
   };
 
-  const openEditModal = (admin: AdminProfile) => {
+  const openEditModal = (admin: AdminType) => {
     setEditingAdmin(admin);
     setFullName(admin.fullName);
     setEmail(admin.email);
-    setRole(admin.role);
-    setPhone(admin.phone || "");
     setAvatar(admin.avatar);
-    setStatus(admin.status);
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email) return;
 
     if (editingAdmin) {
-      AdminStore.updateAdmin(editingAdmin.id, {
+      await updateAdmin(editingAdmin.id, {
         fullName,
         email,
-        role,
-        phone,
         avatar,
-        status,
       });
     } else {
-      AdminStore.addAdmin({
+      await addAdmin({
         fullName,
         email,
-        role,
-        phone,
         avatar: avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=300&auto=format&fit=crop",
-        status,
-        lastActive: "Just now",
       });
     }
     setIsModalOpen(false);
     loadAdmins();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to remove this administrator?")) {
-      AdminStore.deleteAdmin(id);
+      await deleteAdmin(id);
       loadAdmins();
     }
-  };
-
-  const toggleStatus = (admin: AdminProfile) => {
-    const nextStatus = admin.status === "Active" ? "Inactive" : "Active";
-    AdminStore.updateAdmin(admin.id, { status: nextStatus });
-    loadAdmins();
   };
 
   const filteredAdmins = admins.filter((admin) => {
     const matchesSearch =
       admin.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       admin.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = selectedRole === "All" || admin.role === selectedRole;
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
 
   return (
@@ -150,19 +130,6 @@ export default function AdminProfilesPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value)}
-            className="bg-[#1c1c1c] border border-[#2f2f2f] text-neutral-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-accent cursor-pointer"
-          >
-            <option value="All">All Roles</option>
-            <option value="Super Admin">Super Admin</option>
-            <option value="Property Manager">Property Manager</option>
-            <option value="Sales Agent">Sales Agent</option>
-            <option value="Content Editor">Content Editor</option>
-          </select>
-        </div>
       </div>
 
       {/* Data Table */}
@@ -172,9 +139,6 @@ export default function AdminProfilesPage() {
             <thead className="bg-[#191919] text-[11px] uppercase font-mono text-neutral-400 border-b border-[#262626]">
               <tr>
                 <th className="px-5 py-3.5">Admin Member</th>
-                <th className="px-5 py-3.5">Assigned Role</th>
-                <th className="px-5 py-3.5">Contact Details</th>
-                <th className="px-5 py-3.5">Status</th>
                 <th className="px-5 py-3.5">Last Active</th>
                 <th className="px-5 py-3.5 text-right">Actions</th>
               </tr>
@@ -197,54 +161,6 @@ export default function AdminProfilesPage() {
                       </div>
                     </div>
                   </td>
-
-                  {/* Role */}
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                        admin.role === "Super Admin"
-                          ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
-                          : admin.role === "Property Manager"
-                          ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
-                          : admin.role === "Sales Agent"
-                          ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                          : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                      }`}
-                    >
-                      <Shield size={12} />
-                      {admin.role}
-                    </span>
-                  </td>
-
-                  {/* Contact */}
-                  <td className="px-5 py-4 whitespace-nowrap text-xs text-neutral-400 font-mono">
-                    <div className="flex flex-col gap-0.5">
-                      <span>{admin.phone || "No phone listed"}</span>
-                    </div>
-                  </td>
-
-                  {/* Status Toggle */}
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => toggleStatus(admin)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                        admin.status === "Active"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
-                          : "bg-neutral-800 text-neutral-400 border border-neutral-700 hover:bg-neutral-700"
-                      }`}
-                    >
-                      {admin.status === "Active" ? (
-                        <>
-                          <CheckCircle2 size={12} /> Active
-                        </>
-                      ) : (
-                        <>
-                          <XCircle size={12} /> Inactive
-                        </>
-                      )}
-                    </button>
-                  </td>
-
                   {/* Last Active */}
                   <td className="px-5 py-4 whitespace-nowrap text-xs text-neutral-400 font-mono">
                     {admin.lastActive}
@@ -274,7 +190,7 @@ export default function AdminProfilesPage() {
 
               {filteredAdmins.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">
+                  <td colSpan={3} className="px-6 py-12 text-center text-neutral-500">
                     No administrators found matching your search.
                   </td>
                 </tr>
@@ -316,56 +232,16 @@ export default function AdminProfilesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Email Address *</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tariq@spechome.com"
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Phone Number</label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+971 50 123 4567"
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Assigned Role</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as AdminProfile["role"])}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="Super Admin">Super Admin</option>
-                    <option value="Property Manager">Property Manager</option>
-                    <option value="Sales Agent">Sales Agent</option>
-                    <option value="Content Editor">Content Editor</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as "Active" | "Inactive")}
-                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-neutral-300 font-medium mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tariq@spechome.com"
+                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
+                />
               </div>
 
               <div>

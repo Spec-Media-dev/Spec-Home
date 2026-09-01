@@ -15,7 +15,9 @@ import {
   Layers,
   Zap,
 } from "lucide-react";
-import { AdminStore, PropertySpec, Property } from "@/lib/adminStore";
+import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { PropertySpecRow, PropertyRow } from "@/lib/supabase/types";
 
 const specPresets = [
   { key: "Smart Home Automation", value: "Crestron Home + Lutron Palladiom", category: "Smart Home" as const },
@@ -29,110 +31,91 @@ const specPresets = [
 ];
 
 export default function PropertySpecsPage() {
-  const [specs, setSpecs] = useState<PropertySpec[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { specs, properties, deleteSpec, refreshData } = useRealtimeDashboard();
+  const supabase = getSupabaseBrowserClient();
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("All");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSpec, setEditingSpec] = useState<PropertySpec | null>(null);
+  const [editingSpec, setEditingSpec] = useState<PropertySpecRow | null>(null);
 
   // Form State
   const [propertyId, setPropertyId] = useState("");
-  const [category, setCategory] = useState<PropertySpec["category"]>("Architecture & Design");
-  const [specKey, setSpecKey] = useState("");
-  const [specValue, setSpecValue] = useState("");
-  const [highlight, setHighlight] = useState(true);
+  const [labelEn, setLabelEn] = useState("");
+  const [labelAr, setLabelAr] = useState("");
+  const [valueEn, setValueEn] = useState("");
+  const [valueAr, setValueAr] = useState("");
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = () => {
-    setSpecs(AdminStore.getPropertySpecs());
-    const props = AdminStore.getProperties();
-    setProperties(props);
-    if (props.length > 0 && !propertyId) {
-      setPropertyId(props[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (properties.length > 0 && !propertyId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPropertyId(properties[0].id);
     }
-  };
+  }, [properties]);
 
   const openAddModal = () => {
     setEditingSpec(null);
-    setSpecKey("");
-    setSpecValue("");
-    setCategory("Architecture & Design");
-    setHighlight(true);
+    setLabelEn("");
+    setLabelAr("");
+    setValueEn("");
+    setValueAr("");
     setIsModalOpen(true);
   };
 
-  const openEditModal = (spec: PropertySpec) => {
+  const openEditModal = (spec: PropertySpecRow) => {
     setEditingSpec(spec);
-    setPropertyId(spec.propertyId);
-    setCategory(spec.category);
-    setSpecKey(spec.specKey);
-    setSpecValue(spec.specValue);
-    setHighlight(spec.highlight);
+    setPropertyId(spec.property_id);
+    setLabelEn(spec.label_en || "");
+    setLabelAr(spec.label_ar || "");
+    setValueEn(spec.value_en || "");
+    setValueAr(spec.value_ar || "");
     setIsModalOpen(true);
   };
 
-  const handleApplyPreset = (preset: typeof specPresets[0]) => {
-    setSpecKey(preset.key);
-    setSpecValue(preset.value);
-    setCategory(preset.category);
-    setHighlight(true);
+  const handleApplyPreset = (preset: { key: string; value: string; category?: string }) => {
+    setLabelEn(preset.key);
+    setValueEn(preset.value);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!specKey || !specValue || !propertyId) return;
-
-    const prop = properties.find((p) => p.id === propertyId);
+    if (!labelEn || !valueEn || !propertyId) return;
 
     if (editingSpec) {
-      AdminStore.updateSpec(editingSpec.id, {
-        propertyId,
-        propertyTitle: prop?.title || "Property",
-        category,
-        specKey,
-        specValue,
-        highlight,
-      });
+      await supabase.from('property_specs').update({
+        property_id: propertyId,
+        label_en: labelEn,
+        value_en: valueEn,
+        label_ar: labelAr,
+        value_ar: valueAr
+      }).eq('id', editingSpec.id);
     } else {
-      AdminStore.addSpec({
-        propertyId,
-        propertyTitle: prop?.title || "Property",
-        category,
-        specKey,
-        specValue,
-        highlight,
+      await supabase.from('property_specs').insert({
+        property_id: propertyId,
+        label_en: labelEn,
+        value_en: valueEn,
+        label_ar: labelAr,
+        value_ar: valueAr
       });
     }
 
     setIsModalOpen(false);
-    loadData();
+    refreshData();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Delete this specification?")) {
-      AdminStore.deleteSpec(id);
-      loadData();
+      await deleteSpec(id);
     }
   };
 
-  const toggleHighlight = (spec: PropertySpec) => {
-    AdminStore.updateSpec(spec.id, { highlight: !spec.highlight });
-    loadData();
-  };
-
   const filteredSpecs = specs.filter((s) => {
-    const matchesProperty = selectedPropertyId === "All" || s.propertyId === selectedPropertyId;
-    const matchesCategory = selectedCategory === "All" || s.category === selectedCategory;
+    const matchesProperty = selectedPropertyId === "All" || s.property_id === selectedPropertyId;
     const matchesSearch =
-      s.specKey.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.specValue.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.propertyTitle.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesProperty && matchesCategory && matchesSearch;
+      (s.label_en || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.value_en || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (properties.find(p => p.id === s.property_id)?.title_en || "Property").toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesProperty && matchesSearch;
   });
 
   return (
@@ -175,7 +158,6 @@ export default function PropertySpecsPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Property Dropdown */}
           <select
             value={selectedPropertyId}
             onChange={(e) => setSelectedPropertyId(e.target.value)}
@@ -184,23 +166,9 @@ export default function PropertySpecsPage() {
             <option value="All">All Properties ({properties.length})</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.title}
+                {p.title_en}
               </option>
             ))}
-          </select>
-
-          {/* Category Dropdown */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-[#1c1c1c] border border-[#2f2f2f] text-neutral-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-accent cursor-pointer"
-          >
-            <option value="All">All Categories</option>
-            <option value="Architecture & Design">Architecture & Design</option>
-            <option value="Luxury Features">Luxury Features</option>
-            <option value="Smart Home">Smart Home</option>
-            <option value="Facilities & Amenities">Facilities & Amenities</option>
-            <option value="Technical">Technical</option>
           </select>
         </div>
       </div>
@@ -208,56 +176,32 @@ export default function PropertySpecsPage() {
       {/* Specs Matrix Table */}
       <div className="bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-[#191919] text-[11px] uppercase font-mono text-neutral-400 border-b border-[#262626]">
-              <tr>
-                <th className="px-5 py-3.5">Property</th>
-                <th className="px-5 py-3.5">Category</th>
-                <th className="px-5 py-3.5">Specification Key</th>
-                <th className="px-5 py-3.5">Specification Value</th>
-                <th className="px-5 py-3.5">Key Highlight</th>
-                <th className="px-5 py-3.5 text-right">Actions</th>
+          <table className="w-full text-xs sm:text-sm">
+            <thead>
+              <tr className="border-b border-[#222222] bg-[#1a1a1a]">
+                <th className="px-4 py-3 text-left font-medium text-neutral-400">Label (EN)</th>
+                <th className="px-4 py-3 text-left font-medium text-neutral-400">Label (AR)</th>
+                <th className="px-4 py-3 text-left font-medium text-neutral-400">Value (EN)</th>
+                <th className="px-4 py-3 text-left font-medium text-neutral-400">Value (AR)</th>
+                <th className="px-4 py-3 text-right font-medium text-neutral-400 w-24">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#222222]">
+            <tbody>
               {filteredSpecs.map((spec) => (
-                <tr key={spec.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <Building2 size={14} className="text-accent shrink-0" />
-                      <span className="font-semibold text-white">{spec.propertyTitle}</span>
-                    </div>
+                <tr key={spec.id} className="group hover:bg-[#1a1a1a] transition-colors">
+                  <td className="px-4 py-3 border-b border-[#222222]">
+                    <span className="text-white font-medium">{spec.label_en}</span>
                   </td>
-
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 border border-neutral-700">
-                      {spec.category}
-                    </span>
+                  <td className="px-4 py-3 border-b border-[#222222]">
+                    <span className="text-neutral-300" dir="rtl">{spec.label_ar}</span>
                   </td>
-
-                  <td className="px-5 py-4 whitespace-nowrap font-medium text-neutral-200">
-                    {spec.specKey}
+                  <td className="px-4 py-3 border-b border-[#222222]">
+                    <span className="text-neutral-300">{spec.value_en}</span>
                   </td>
-
-                  <td className="px-5 py-4 whitespace-nowrap font-mono text-accent">
-                    {spec.specValue}
+                  <td className="px-4 py-3 border-b border-[#222222]">
+                    <span className="text-neutral-300" dir="rtl">{spec.value_ar}</span>
                   </td>
-
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => toggleHighlight(spec)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                        spec.highlight
-                          ? "bg-accent/20 text-accent border border-accent/40"
-                          : "bg-neutral-800 text-neutral-500 border border-neutral-700"
-                      }`}
-                    >
-                      <Star size={11} className={spec.highlight ? "fill-accent" : ""} />
-                      {spec.highlight ? "Featured Tag" : "Standard"}
-                    </button>
-                  </td>
-
-                  <td className="px-5 py-4 whitespace-nowrap text-right">
+                  <td className="px-4 py-3 border-b border-[#222222] text-right">
                     <div className="flex items-center justify-end gap-2 text-neutral-400">
                       <button
                         onClick={() => openEditModal(spec)}
@@ -280,7 +224,7 @@ export default function PropertySpecsPage() {
 
               {filteredSpecs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
                     No specifications match your filter.
                   </td>
                 </tr>
@@ -310,7 +254,6 @@ export default function PropertySpecsPage() {
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-4 text-xs sm:text-sm">
-              {/* Quick Presets for fast entry */}
               {!editingSpec && (
                 <div>
                   <label className="block text-neutral-400 font-mono text-[11px] uppercase mb-1.5">
@@ -341,62 +284,56 @@ export default function PropertySpecsPage() {
                 >
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.title} ({p.location})
+                      {p.title_en} ({p.location})
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Spec Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as PropertySpec["category"])}
-                  className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent cursor-pointer"
-                >
-                  <option value="Architecture & Design">Architecture & Design</option>
-                  <option value="Luxury Features">Luxury Features</option>
-                  <option value="Smart Home">Smart Home</option>
-                  <option value="Facilities & Amenities">Facilities & Amenities</option>
-                  <option value="Technical">Technical</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-neutral-300 font-medium mb-1">Label (English) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={labelEn}
+                    onChange={(e) => setLabelEn(e.target.value)}
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-300 font-medium mb-1">Value (English) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={valueEn}
+                    onChange={(e) => setValueEn(e.target.value)}
+                    className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Attribute Name *</label>
+                  <label className="block text-neutral-300 font-medium mb-1">Label (Arabic)</label>
                   <input
                     type="text"
-                    required
-                    value={specKey}
-                    onChange={(e) => setSpecKey(e.target.value)}
-                    placeholder="e.g. Smart Automation"
+                    value={labelAr}
+                    onChange={(e) => setLabelAr(e.target.value)}
+                    dir="rtl"
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-300 font-medium mb-1">Value / Feature *</label>
+                  <label className="block text-neutral-300 font-medium mb-1">Value (Arabic)</label>
                   <input
                     type="text"
-                    required
-                    value={specValue}
-                    onChange={(e) => setSpecValue(e.target.value)}
-                    placeholder="e.g. Crestron Home"
+                    value={valueAr}
+                    onChange={(e) => setValueAr(e.target.value)}
+                    dir="rtl"
                     className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent"
                   />
                 </div>
-              </div>
-
-              <div className="pt-2">
-                <label className="flex items-center gap-2 text-neutral-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={highlight}
-                    onChange={(e) => setHighlight(e.target.checked)}
-                    className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-accent focus:ring-accent"
-                  />
-                  <span>Feature as Key Marketing Highlight</span>
-                </label>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#262626]">

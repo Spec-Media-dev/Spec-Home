@@ -11,7 +11,6 @@ import type {
   EnquiryRow,
   SiteSettingsRow,
 } from "@/lib/supabase/types";
-import { AdminStore } from "@/lib/adminStore";
 
 export function useRealtimeDashboard() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
@@ -24,21 +23,24 @@ export function useRealtimeDashboard() {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const supabase = getSupabaseBrowserClient();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // 1. Initial Full Data Fetch
+  // 1. Initial Full Data Fetch — 100% directly from Database (NO STATIC FALLBACKS)
   const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
     try {
       const [
-        { data: projectsData },
-        { data: propertiesData },
-        { data: imagesData },
-        { data: specsData },
-        { data: adminsData },
-        { data: enquiriesData },
-        { data: settingsData },
+        { data: projectsData, error: pErr },
+        { data: propertiesData, error: prErr },
+        { data: imagesData, error: imgErr },
+        { data: specsData, error: spErr },
+        { data: adminsData, error: admErr },
+        { data: enquiriesData, error: enqErr },
+        { data: settingsData, error: setErr },
       ] = await Promise.all([
         supabase.from("projects").select("*").order("created_at", { ascending: false }),
         supabase.from("properties").select("*").order("created_at", { ascending: false }),
@@ -49,66 +51,23 @@ export function useRealtimeDashboard() {
         supabase.from("site_settings").select("*").limit(1).maybeSingle(),
       ]);
 
-      if (projectsData && projectsData.length > 0) {
-        setProjects(projectsData);
-      } else {
-        // Fallback to store
-        const storeProjects = AdminStore.getProjects().map((p) => ({
-          id: p.id,
-          slug: p.slug,
-          name_en: p.title,
-          name_ar: p.title,
-          description_en: p.description,
-          description_ar: p.description,
-          location_en: p.location,
-          location_ar: p.location,
-          cover_image_path: p.heroImage,
-          is_published: true,
-          is_featured: p.featured,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }));
-        setProjects(storeProjects as any);
-      }
+      if (pErr) console.error("Projects Fetch Error:", pErr.message);
+      if (prErr) console.error("Properties Fetch Error:", prErr.message);
 
-      if (propertiesData && propertiesData.length > 0) {
-        setProperties(propertiesData);
-      } else {
-        // Fallback to store
-        const storeProps = AdminStore.getProperties().map((p) => ({
-          id: p.id,
-          project_id: p.projectId || "a0000000-0000-0000-0000-000000000001",
-          slug: p.slug,
-          reference_code: `SHP-${p.id.slice(0, 5)}`,
-          title_en: p.title,
-          title_ar: p.title,
-          description_en: p.description,
-          description_ar: p.description,
-          price: p.numericPrice,
-          bedrooms: p.bedrooms,
-          bathrooms: p.bathrooms,
-          area_sqft: p.areaSqFt,
-          property_type_en: p.type,
-          property_type_ar: p.type,
-          status: (p.status.toLowerCase() === "published" ? "available" : p.status.toLowerCase()) as any,
-          is_published: p.status === "Published",
-          is_featured: p.featured,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }));
-        setProperties(storeProps as any);
-      }
-
-      if (imagesData) setImages(imagesData);
-      if (specsData) setSpecs(specsData);
-      if (adminsData) setAdmins(adminsData);
-      if (enquiriesData) setEnquiries(enquiriesData);
-      if (settingsData) setSiteSettings(settingsData);
+      // Always set pure database data (even if empty array)
+      setProjects(projectsData || []);
+      setProperties(propertiesData || []);
+      setImages(imagesData || []);
+      setSpecs(specsData || []);
+      setAdmins(adminsData || []);
+      setEnquiries(enquiriesData || []);
+      setSiteSettings(settingsData || null);
 
       setIsConnected(true);
       setLastSync(new Date());
-    } catch (err) {
-      console.warn("Realtime Dashboard sync using memory cache:", err);
+    } catch (err: any) {
+      console.error("Database fetch error:", err);
+      setErrorMessage(err?.message || "Failed to load database");
     } finally {
       setLoading(false);
     }
@@ -118,9 +77,11 @@ export function useRealtimeDashboard() {
   useEffect(() => {
     fetchAllData();
 
-    // Create a unified high-performance Supabase channel
+    // Create a unified high-performance Supabase channel with a unique name
+    // to allow multiple components to use this hook concurrently without conflict
+    const channelName = `admin-realtime-hub-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("admin-realtime-hub")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "enquiries" },
@@ -228,36 +189,84 @@ export function useRealtimeDashboard() {
   const updateEnquiryStatus = async (id: string, status: EnquiryRow["status"]) => {
     setEnquiries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
     try {
-      await supabase.from("enquiries").update({ status }).eq("id", id);
-    } catch (err) {
-      console.error("Failed to update enquiry status:", err);
+      const { error } = await supabase.from("enquiries").update({ status }).eq("id", id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Failed to update enquiry status:", err.message);
+      alert(`Database update error: ${err.message}`);
+      fetchAllData();
     }
   };
 
   const deleteEnquiry = async (id: string) => {
     setEnquiries((prev) => prev.filter((e) => e.id !== id));
     try {
-      await supabase.from("enquiries").delete().eq("id", id);
-    } catch (err) {
-      console.error("Failed to delete enquiry:", err);
+      const { error } = await supabase.from("enquiries").delete().eq("id", id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Failed to delete enquiry:", err.message);
+      alert(`Database delete error: ${err.message}`);
+      fetchAllData();
     }
   };
 
   const deleteProperty = async (id: string) => {
     setProperties((prev) => prev.filter((p) => p.id !== id));
     try {
-      await supabase.from("properties").delete().eq("id", id);
-    } catch (err) {
-      console.error("Failed to delete property:", err);
+      const { error } = await supabase.from("properties").delete().eq("id", id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Failed to delete property:", err.message);
+      alert(`Database delete error: ${err.message}`);
+      fetchAllData();
     }
   };
 
   const deleteProject = async (id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
     try {
-      await supabase.from("projects").delete().eq("id", id);
-    } catch (err) {
-      console.error("Failed to delete project:", err);
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Failed to delete project:", err.message);
+      alert(`Database delete error: ${err.message}`);
+      fetchAllData();
+    }
+  };
+
+  const deleteAdmin = async (id: string) => {
+    setAdmins((prev) => prev.filter((a) => a.id !== id));
+    try {
+      const { error } = await supabase.from("admin_profiles").delete().eq("id", id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Failed to delete admin:", err.message);
+      alert(`Database delete error: ${err.message}`);
+      fetchAllData();
+    }
+  };
+
+  const deleteImage = async (id: string) => {
+    setImages((prev) => prev.filter((i) => i.id !== id));
+    try {
+      const { error } = await supabase.from("property_images").delete().eq("id", id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Failed to delete image:", err.message);
+      alert(`Database delete error: ${err.message}`);
+      fetchAllData();
+    }
+  };
+
+  const deleteSpec = async (id: string) => {
+    setSpecs((prev) => prev.filter((s) => s.id !== id));
+    try {
+      const { error } = await supabase.from("property_specs").delete().eq("id", id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Failed to delete spec:", err.message);
+      alert(`Database delete error: ${err.message}`);
+      fetchAllData();
     }
   };
 
@@ -272,10 +281,14 @@ export function useRealtimeDashboard() {
     loading,
     isConnected,
     lastSync,
+    errorMessage,
     refreshData: fetchAllData,
     updateEnquiryStatus,
     deleteEnquiry,
     deleteProperty,
     deleteProject,
+    deleteAdmin,
+    deleteImage,
+    deleteSpec,
   };
 }
