@@ -1,5 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Hero from "@/components/Hero";
 import SelectedOpportunities from "@/components/SelectedOpportunities";
 import AreaGuides from "@/components/AreaGuides";
@@ -11,6 +12,8 @@ import { getGlobalSeo, getPageSeo } from "@/lib/queries/seo";
 import { getSiteSettings } from "@/lib/queries/site-settings";
 import { getStorageUrl } from "@/lib/supabase/storage";
 import { JsonLd, buildHomepageSchema } from "@/lib/seo/schema";
+
+const VALID_LOCALES = ["en", "ar"];
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -25,7 +28,10 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolvedParams = await params;
-  const locale = resolvedParams?.locale === "ar" ? "ar" : "en";
+  if (!resolvedParams?.locale || !VALID_LOCALES.includes(resolvedParams.locale)) {
+    return {};
+  }
+  const locale = resolvedParams.locale === "ar" ? "ar" : "en";
   const isAr = locale === "ar";
 
   const [globalSeo, homeSeo, siteSettings] = await Promise.all([
@@ -80,7 +86,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Home({ params }: Props) {
   const resolvedParams = await params;
-  const locale = resolvedParams?.locale === "ar" ? "ar" : "en";
+  if (!resolvedParams?.locale || !VALID_LOCALES.includes(resolvedParams.locale)) {
+    notFound();
+  }
+  const locale = resolvedParams.locale === "ar" ? "ar" : "en";
   const siteSettings = await getSiteSettings();
 
   return (

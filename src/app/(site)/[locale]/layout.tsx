@@ -1,5 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Preloader from "@/components/Preloader";
@@ -8,6 +9,12 @@ import { I18nProvider, Locale } from "@/lib/i18n";
 import { getGlobalSeo, getPageSeo } from "@/lib/queries/seo";
 import { getSiteSettings } from "@/lib/queries/site-settings";
 import { getStorageUrl } from "@/lib/supabase/storage";
+
+const VALID_LOCALES = ["en", "ar"];
+
+export function generateStaticParams() {
+  return [{ locale: "en" }, { locale: "ar" }];
+}
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -22,7 +29,10 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const resolvedParams = await params;
-  const locale = resolvedParams?.locale === "ar" ? "ar" : "en";
+  if (!resolvedParams?.locale || !VALID_LOCALES.includes(resolvedParams.locale)) {
+    return {};
+  }
+  const locale = resolvedParams.locale === "ar" ? "ar" : "en";
   const isAr = locale === "ar";
 
   const [globalSeo, homeSeo, siteSettings] = await Promise.all([
@@ -91,7 +101,10 @@ export default async function SiteLayout({
   params: Promise<{ locale: string }>;
 }) {
   const resolvedParams = await params;
-  const locale: Locale = resolvedParams?.locale === "ar" ? "ar" : "en";
+  if (!resolvedParams?.locale || !VALID_LOCALES.includes(resolvedParams.locale)) {
+    notFound();
+  }
+  const locale = resolvedParams.locale as Locale;
   const siteSettings = await getSiteSettings();
 
   return (
