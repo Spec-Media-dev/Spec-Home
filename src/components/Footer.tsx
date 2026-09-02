@@ -1,10 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { useSiteSettings } from "@/lib/context/SiteSettingsContext";
+import { useTheme } from "./ThemeProvider";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const InstagramIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -31,6 +33,8 @@ const YoutubeIcon = () => (
 
 export default function Footer() {
   const { locale, t } = useI18n();
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const {
     brandName,
     logoUrl,
@@ -44,6 +48,10 @@ export default function Footer() {
     youtubeUrl,
   } = useSiteSettings();
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <footer className="border-t border-border py-14 px-6 lg:px-12 bg-background text-foreground/70">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
@@ -54,7 +62,13 @@ export default function Footer() {
               <img
                 src={logoUrl}
                 alt={brandName}
-                className="h-9 max-w-[160px] object-contain mb-2"
+                className={cn(
+                  "h-9 max-w-[160px] object-contain mb-2 transition-all duration-300",
+                  mounted &&
+                    theme === "light" &&
+                    (logoUrl.toLowerCase().includes("white") || logoUrl.toLowerCase().includes("branding")) &&
+                    "filter invert contrast-125"
+                )}
               />
             ) : (
               <h2 className="text-2xl font-bold tracking-tighter text-foreground">

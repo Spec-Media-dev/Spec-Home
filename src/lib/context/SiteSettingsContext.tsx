@@ -1,9 +1,10 @@
 "use client";
 
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import type { SiteSettingsRow } from "@/lib/supabase/types";
 import { useI18n } from "@/lib/i18n";
 import { getStorageUrl } from "@/lib/supabase/storage";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface SiteSettingsContextType {
   settings: SiteSettingsRow;
@@ -34,51 +35,81 @@ export function SiteSettingsProvider({
 }) {
   const { locale } = useI18n();
   const isAr = locale === "ar";
+  const [currentSettings, setCurrentSettings] = useState<SiteSettingsRow>(settings);
+
+  // Sync state whenever props change from SSR
+  useEffect(() => {
+    setCurrentSettings(settings);
+  }, [settings]);
+
+  // Real-time synchronization: listen for database updates to site_settings
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    const channel = supabase
+      .channel("public-site-settings-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "site_settings" },
+        (payload) => {
+          if (payload.new) {
+            setCurrentSettings((prev) => ({
+              ...prev,
+              ...(payload.new as SiteSettingsRow),
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const brandName = isAr
-    ? settings.brand_name_ar || settings.brand_name_en || "سبيك هوم دبي"
-    : settings.brand_name_en || settings.brand_name_ar || "SPEC Home Dubai";
+    ? currentSettings.brand_name_ar || currentSettings.brand_name_en || "سبيك هوم دبي"
+    : currentSettings.brand_name_en || currentSettings.brand_name_ar || "SPEC Home Dubai";
 
   const tagline = isAr
-    ? settings.tagline_ar || settings.tagline_en || "قمة العقارات الفاخرة في دبي"
-    : settings.tagline_en || settings.tagline_ar || "The Pinnacle of Dubai Luxury Real Estate";
+    ? currentSettings.tagline_ar || currentSettings.tagline_en || "قمة العقارات الفاخرة في دبي"
+    : currentSettings.tagline_en || currentSettings.tagline_ar || "The Pinnacle of Dubai Luxury Real Estate";
 
   const announcement = isAr
-    ? settings.announcement_ar || settings.announcement_en || ""
-    : settings.announcement_en || settings.announcement_ar || "";
+    ? currentSettings.announcement_ar || currentSettings.announcement_en || ""
+    : currentSettings.announcement_en || currentSettings.announcement_ar || "";
 
   const officeAddress = isAr
-    ? settings.office_address_ar || settings.office_address_en || "الطابق 42، برج السعادة، وسط مدينة دبي، الإمارات"
-    : settings.office_address_en || settings.office_address_ar || "Level 42, Al Saada Tower, Downtown Dubai, UAE";
+    ? currentSettings.office_address_ar || currentSettings.office_address_en || "الطابق 42، برج السعادة، وسط مدينة دبي، الإمارات"
+    : currentSettings.office_address_en || currentSettings.office_address_ar || "Level 42, Al Saada Tower, Downtown Dubai, UAE";
 
-  const logoUrl = settings.logo_path
-    ? settings.logo_path.startsWith("http")
-      ? settings.logo_path
-      : getStorageUrl(settings.logo_path, "site-assets")
+  const logoUrl = currentSettings.logo_path
+    ? currentSettings.logo_path.startsWith("http")
+      ? currentSettings.logo_path
+      : getStorageUrl(currentSettings.logo_path, "site-assets")
     : null;
 
-  const heroImageUrl = settings.hero_image_path
-    ? settings.hero_image_path.startsWith("http")
-      ? settings.hero_image_path
-      : getStorageUrl(settings.hero_image_path, "site-assets")
+  const heroImageUrl = currentSettings.hero_image_path
+    ? currentSettings.hero_image_path.startsWith("http")
+      ? currentSettings.hero_image_path
+      : getStorageUrl(currentSettings.hero_image_path, "site-assets")
     : null;
 
   const value: SiteSettingsContextType = {
-    settings,
+    settings: currentSettings,
     brandName,
     tagline,
     announcement,
     officeAddress,
-    contactEmail: settings.contact_email || "concierge@spechome.com",
-    contactPhone: settings.contact_phone || "+971 4 800 7732",
-    whatsappNumber: settings.whatsapp_number || "+971 50 999 8888",
+    contactEmail: currentSettings.contact_email || "concierge@spechome.com",
+    contactPhone: currentSettings.contact_phone || "+971 4 800 7732",
+    whatsappNumber: currentSettings.whatsapp_number || "+971 50 999 8888",
     logoUrl,
     heroImageUrl,
-    instagramUrl: settings.instagram_url || "https://instagram.com/spechomedubai",
-    linkedinUrl: settings.linkedin_url || "https://linkedin.com/company/spechomedubai",
-    youtubeUrl: settings.youtube_url || "https://youtube.com/@spechomedubai",
-    maintenanceMode: !!settings.maintenance_mode,
-    currency: settings.currency || "AED",
+    instagramUrl: currentSettings.instagram_url || "https://instagram.com/spechomedubai",
+    linkedinUrl: currentSettings.linkedin_url || "https://linkedin.com/company/spechomedubai",
+    youtubeUrl: currentSettings.youtube_url || "https://youtube.com/@spechomedubai",
+    maintenanceMode: !!currentSettings.maintenance_mode,
+    currency: currentSettings.currency || "AED",
   };
 
   return (

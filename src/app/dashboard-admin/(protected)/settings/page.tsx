@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingLogo, setSavingLogo] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Load site settings into form
@@ -207,12 +208,33 @@ export default function SettingsPage() {
       const res = await uploadMediaFile(base64, file.name, "site-assets", "branding");
       if (res.success && res.url) {
         setLogoPath(res.url);
+        // Automatically save to database so the live site updates immediately without having to scroll down
+        const saveRes = await updateSiteSettings({ logo_path: res.url });
+        if (saveRes.success) {
+          showSuccess("New logo uploaded and saved to website!");
+          refreshData();
+        } else {
+          alert(`Logo uploaded, but failed to save to database: ${saveRes.error}`);
+        }
       } else {
         alert(res.error || "Failed to upload logo.");
       }
       setUploadingLogo(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSaveLogoOnly = async () => {
+    if (!logoPath) return;
+    setSavingLogo(true);
+    const res = await updateSiteSettings({ logo_path: logoPath });
+    setSavingLogo(false);
+    if (res.success) {
+      showSuccess("Logo successfully updated and saved to website!");
+      refreshData();
+    } else {
+      alert(`Error saving logo: ${res.error}`);
+    }
   };
 
   return (
@@ -335,8 +357,11 @@ export default function SettingsPage() {
 
           {/* Logo Asset */}
           <div>
-            <label className="block text-neutral-300 font-medium text-xs mb-1">Public Website Logo Asset</label>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-neutral-300 font-medium text-xs">Public Website Logo Asset</label>
+              <span className="text-[11px] text-neutral-400">Auto-syncs live to website upon saving</span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={logoPath}
@@ -344,16 +369,65 @@ export default function SettingsPage() {
                 placeholder="Logo image URL or storage path"
                 className="flex-1 bg-[#1c1c1c] border border-[#333] rounded-lg px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-accent font-mono"
               />
-              <label className="px-4 py-2.5 bg-[#222] hover:bg-[#333] text-white rounded-lg border border-[#3a3a3a] cursor-pointer text-xs flex items-center gap-1.5 shrink-0">
-                <Upload size={14} className={uploadingLogo ? "animate-spin" : ""} />
-                <span>Upload Logo</span>
-                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveLogoOnly}
+                  disabled={savingLogo || !logoPath}
+                  className="px-4 py-2.5 bg-accent hover:bg-[#e5c158] text-black font-bold rounded-lg text-xs flex items-center gap-1.5 shrink-0 transition-colors disabled:opacity-50 shadow-sm"
+                  title="Save Logo directly without scrolling to page bottom"
+                >
+                  <CheckCircle2 size={14} className={savingLogo ? "animate-spin" : ""} />
+                  <span>{savingLogo ? "Saving..." : "Save Logo"}</span>
+                </button>
+                <label className="px-4 py-2.5 bg-[#222] hover:bg-[#333] text-white rounded-lg border border-[#3a3a3a] cursor-pointer text-xs flex items-center gap-1.5 shrink-0">
+                  <Upload size={14} className={uploadingLogo ? "animate-spin" : ""} />
+                  <span>{uploadingLogo ? "Uploading..." : "Upload Logo"}</span>
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                </label>
+              </div>
             </div>
+
             {logoPath && (
-              <div className="mt-2 h-12 w-36 rounded border border-[#333] p-1 bg-black flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={getStorageUrl(logoPath, "site-assets")} alt="Logo preview" className="max-h-full max-w-full object-contain" />
+              <div className="mt-3 space-y-2">
+                <div className="text-[11px] text-neutral-400 font-medium flex items-center gap-1.5">
+                  <span>Theme Visibility Preview (Both Dark & Light Site Modes):</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Dark Mode Preview */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="h-14 w-44 rounded-lg border border-[#333] p-2 bg-[#0a0a0a] flex items-center justify-center shadow-inner">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={getStorageUrl(logoPath, "site-assets")}
+                        alt="Dark Theme Preview"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-mono">Dark Theme Mode</span>
+                  </div>
+
+                  {/* Light Mode Preview with Adaptive Contrast */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="h-14 w-44 rounded-lg border border-[#e8e5df] p-2 bg-[#fbfaf8] flex items-center justify-center shadow-inner">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={getStorageUrl(logoPath, "site-assets")}
+                        alt="Light Theme Preview"
+                        className={`max-h-full max-w-full object-contain ${
+                          (logoPath.toLowerCase().includes("white") || logoPath.toLowerCase().includes("branding"))
+                            ? "filter invert contrast-125"
+                            : ""
+                        }`}
+                      />
+                    </div>
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-mono">Light Theme Mode</span>
+                  </div>
+
+                  <div className="text-[11px] text-neutral-400 max-w-xs leading-snug">
+                    💡 White logos automatically adapt to crisp charcoal/black in Light Mode so they remain visible across all light backgrounds.
+                  </div>
+                </div>
               </div>
             )}
           </div>

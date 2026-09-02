@@ -76,7 +76,13 @@ export default function Header() {
               <img
                 src={logoUrl}
                 alt={brandName}
-                className="h-8 max-w-[140px] object-contain"
+                className={cn(
+                  "h-8 max-w-[140px] object-contain transition-all duration-300",
+                  mounted &&
+                    theme === "light" &&
+                    (logoUrl.toLowerCase().includes("white") || logoUrl.toLowerCase().includes("branding")) &&
+                    "filter invert contrast-125"
+                )}
               />
             ) : (
               <span>{brandName || t.nav.brand}</span>

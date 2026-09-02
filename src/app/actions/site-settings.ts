@@ -89,8 +89,21 @@ export async function updateSiteSettings(
 
     if (error) return { success: false, error: error.message };
 
+    // Revalidate root layouts and concrete dynamic localized routes
     revalidatePath("/", "layout");
     revalidatePath("/[locale]", "layout");
+    revalidatePath("/en", "layout");
+    revalidatePath("/ar", "layout");
+    revalidatePath("/en");
+    revalidatePath("/ar");
+    revalidatePath("/en/properties");
+    revalidatePath("/ar/properties");
+    revalidatePath("/en/projects");
+    revalidatePath("/ar/projects");
+    revalidatePath("/en/about");
+    revalidatePath("/ar/about");
+    revalidatePath("/en/contact");
+    revalidatePath("/ar/contact");
     revalidatePath("/dashboard-admin/settings");
     revalidatePath("/dashboard-admin/site-settings");
 
