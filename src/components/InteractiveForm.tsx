@@ -42,7 +42,7 @@ function InteractiveFormComponent() {
   };
 
   return (
-    <section id="sell" className="py-32 bg-background w-full relative flex justify-center overflow-hidden min-h-[600px] items-center">
+    <section id="sell" className="py-20 md:py-32 bg-background w-full relative flex justify-center overflow-hidden min-h-[500px] md:min-h-[600px] items-center transition-colors duration-300">
       {/* High performance hardware-accelerated ambient glow */}
       <div 
         aria-hidden="true"
@@ -53,10 +53,10 @@ function InteractiveFormComponent() {
         }}
       />
 
-      <div className="w-full max-w-xl mx-auto px-6 relative z-10">
-        <div className="bg-card/70 backdrop-blur-2xl border border-border p-8 md:p-12 rounded-[2.5rem] shadow-2xl">
-          <h2 className="text-4xl font-bold mb-4 text-center tracking-tighter text-foreground">{t.interactiveForm.title}</h2>
-          <p className="text-center text-foreground/60 mb-10 text-sm">{t.interactiveForm.subtitle}</p>
+      <div className="w-full max-w-xl mx-auto px-4 sm:px-6 relative z-10">
+        <div className="bg-card/80 dark:bg-card/60 backdrop-blur-2xl border border-border p-6 sm:p-8 md:p-12 rounded-3xl sm:rounded-[2.5rem] shadow-2xl">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4 text-center tracking-tighter text-foreground">{t.interactiveForm.title}</h2>
+          <p className="text-center text-foreground/60 mb-8 sm:mb-10 text-xs sm:text-sm font-light">{t.interactiveForm.subtitle}</p>
           
           <AnimatePresence mode="wait">
             {status !== "success" ? (

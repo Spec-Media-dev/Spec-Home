@@ -33,25 +33,25 @@ export default function FeaturedInsights() {
   ];
 
   return (
-    <section className="py-32 bg-card relative">
-      <div className="container mx-auto px-6 max-w-7xl">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+    <section className="py-20 md:py-32 bg-card relative transition-colors duration-300">
+      <div className="container mx-auto px-4 sm:px-6 max-w-7xl">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 sm:mb-16 gap-4 sm:gap-6">
           <motion.div 
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-100px" }}
             variants={staggerContainer}
           >
-            <motion.h2 variants={fadeUp} className="text-4xl md:text-6xl font-bold tracking-tighter text-foreground mb-4">
+            <motion.h2 variants={fadeUp} className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tighter text-foreground mb-3 sm:mb-4">
               {t.featuredInsights.title.split(".")[0]} <span className="text-accent">.</span>
             </motion.h2>
-            <motion.p variants={fadeUp} className="text-foreground/60 max-w-2xl text-lg">
+            <motion.p variants={fadeUp} className="text-foreground/60 max-w-2xl text-base sm:text-lg font-light">
               {t.featuredInsights.subtitle}
             </motion.p>
           </motion.div>
           <Link 
             href={`/${locale}/about`} 
-            className="inline-flex items-center gap-2 text-accent font-medium hover:text-accent/80 transition-colors uppercase tracking-widest text-sm whitespace-nowrap"
+            className="inline-flex items-center gap-2 text-accent font-medium hover:text-accent/80 transition-colors uppercase tracking-widest text-xs sm:text-sm whitespace-nowrap"
           >
             {t.featuredInsights.viewAll} {isRTL ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
           </Link>
@@ -62,7 +62,7 @@ export default function FeaturedInsights() {
           whileInView="show"
           viewport={{ once: true, margin: "-100px" }}
           variants={staggerContainer}
-          className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8"
         >
           {insights.map((insight, index) => (
             <motion.div 

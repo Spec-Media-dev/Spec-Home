@@ -83,7 +83,7 @@ function HeroComponent() {
   return (
     <section 
       ref={containerRef}
-      className="relative w-full h-[100svh] min-h-[750px] flex flex-col justify-center overflow-hidden bg-background gpu-layer"
+      className="relative w-full h-[100svh] min-h-[580px] sm:min-h-[660px] md:min-h-[750px] flex flex-col justify-center overflow-hidden bg-background gpu-layer"
     >
       {/* Scroll-scaling wrapper - GPU accelerated scale + translateY */}
       <motion.div 
@@ -112,26 +112,26 @@ function HeroComponent() {
       {/* Main Content */}
       <motion.div 
         style={{ opacity, willChange: "opacity" }}
-        className="relative z-10 container mx-auto px-6 max-w-7xl flex flex-col items-center text-center"
+        className="relative z-10 container mx-auto px-4 sm:px-6 max-w-7xl flex flex-col items-center text-center"
       >
         <motion.div 
           variants={textContainer}
           initial="hidden"
           animate="show"
-          className="mb-10"
+          className="mb-8 sm:mb-10"
         >
-          <div className="overflow-hidden pb-3">
+          <div className="overflow-hidden pb-2 sm:pb-3">
             <motion.h1 
               variants={textItem}
-              className="text-6xl md:text-8xl lg:text-[7rem] font-bold text-white tracking-tighter leading-[0.92]"
+              className="text-4xl sm:text-6xl md:text-8xl lg:text-[7rem] font-bold text-white tracking-tighter leading-[0.98] sm:leading-[0.92]"
             >
               {t.hero.titleLine1}
             </motion.h1>
           </div>
-          <div className="overflow-hidden pb-3">
+          <div className="overflow-hidden pb-2 sm:pb-3">
             <motion.h1 
               variants={textItem}
-              className="text-6xl md:text-8xl lg:text-[7rem] font-bold text-white tracking-tighter leading-[0.92]"
+              className="text-4xl sm:text-6xl md:text-8xl lg:text-[7rem] font-bold text-white tracking-tighter leading-[0.98] sm:leading-[0.92]"
             >
               {t.hero.titleLine2}
             </motion.h1>
@@ -143,24 +143,25 @@ function HeroComponent() {
           variants={actionsAnimation}
           initial="hidden"
           animate="show"
-          className="flex justify-center mt-8"
+          className="flex justify-center mt-6 sm:mt-8"
         >
           <Link 
             href={`/${locale}/properties`}
-            className="group relative h-16 w-16 hover:w-64 rounded-full bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 hover:border-accent/60 hover:bg-white/15 transition-all duration-500 overflow-hidden flex items-center justify-center gap-4 cursor-pointer shadow-2xl gpu-layer"
+            className="group relative h-14 w-14 sm:h-16 sm:w-16 hover:w-56 sm:hover:w-64 rounded-full bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 hover:border-accent/60 hover:bg-white/15 transition-all duration-500 overflow-hidden flex items-center justify-center gap-4 cursor-pointer shadow-2xl gpu-layer"
+            aria-label={t.hero.searchPill}
           >
             <div className="absolute inset-0 bg-accent/0 group-hover:bg-accent/15 transition-colors duration-500" />
             
             {/* Icon */}
-            <div className="relative z-10 flex items-center justify-center min-w-[64px]">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white group-hover:text-accent transition-colors duration-500">
+            <div className="relative z-10 flex items-center justify-center min-w-[56px] sm:min-w-[64px]">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white group-hover:text-accent transition-colors duration-500">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
             </div>
 
             {/* Expanding Text */}
-            <span className="relative z-10 text-white font-medium tracking-widest uppercase text-sm opacity-0 group-hover:opacity-100 whitespace-nowrap -ml-4 pr-6 transition-opacity duration-500">
+            <span className="relative z-10 text-white font-medium tracking-widest uppercase text-xs sm:text-sm opacity-0 group-hover:opacity-100 whitespace-nowrap -ml-4 pr-6 transition-opacity duration-500">
               {t.hero.searchPill}
             </span>
           </Link>

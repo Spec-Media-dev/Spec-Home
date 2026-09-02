@@ -40,21 +40,21 @@ export default function SelectedOpportunities() {
   };
 
   return (
-    <section id="buy" className="py-32 bg-background w-full relative">
-      <div className="container mx-auto px-6 max-w-7xl">
-        <div className="mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+    <section id="buy" className="py-20 md:py-32 bg-background w-full relative transition-colors duration-300">
+      <div className="container mx-auto px-4 sm:px-6 max-w-7xl">
+        <div className="mb-10 sm:mb-16">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4">
             {t.selectedOpportunities.title}
           </h2>
-          <p className="text-foreground/60 text-lg max-w-2xl">
+          <p className="text-foreground/60 text-base sm:text-lg max-w-2xl font-light">
             {t.selectedOpportunities.subtitle}
           </p>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="w-full h-[450px] rounded-3xl bg-card border border-border animate-pulse" />
+              <div key={i} className="w-full h-[400px] sm:h-[450px] rounded-3xl bg-card border border-border animate-pulse" />
             ))}
           </div>
         ) : properties.length > 0 ? (
@@ -63,7 +63,7 @@ export default function SelectedOpportunities() {
             whileInView="show"
             viewport={{ once: true, margin: "-100px" }}
             variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-2 gap-8"
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8"
           >
             {properties.map((prop) => (
               <PropertyCard

@@ -48,28 +48,28 @@ export default function ContactClient() {
   };
 
   return (
-    <div className="bg-background min-h-screen text-foreground pt-32 pb-24 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+    <div className="bg-background min-h-screen text-foreground pt-28 sm:pt-32 pb-16 sm:pb-24 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="mb-16"
+          className="mb-10 sm:mb-16"
         >
-          <h1 className="text-5xl md:text-7xl font-light tracking-tighter mb-6 text-foreground">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-light tracking-tighter mb-4 sm:mb-6 text-foreground">
             {t.contactPage.title.split(" ")[0]} <span className="font-bold text-accent">{t.contactPage.title.split(" ").slice(1).join(" ")}</span>
           </h1>
-          <p className="text-xl text-foreground/60 max-w-2xl font-light">
+          <p className="text-base sm:text-xl text-foreground/60 max-w-2xl font-light">
             {t.contactPage.subtitle}
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           <motion.div 
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="space-y-12"
+            className="space-y-8 sm:space-y-12"
           >
             <div>
               <h2 className="text-2xl font-bold mb-6 text-foreground">{t.contactPage.contactInfo}</h2>
@@ -137,7 +137,7 @@ export default function ContactClient() {
               </div>
             </div>
 
-            <div className="h-64 bg-card rounded-3xl border border-border overflow-hidden relative shadow-md group">
+            <div className="h-64 sm:h-72 bg-neutral-950 rounded-3xl border border-border overflow-hidden relative shadow-md group">
               <iframe
                 title="SPEC Home Office Location"
                 src="https://maps.google.com/maps?q=25.096834,55.176888&hl=en&z=15&output=embed"
@@ -145,19 +145,22 @@ export default function ContactClient() {
                 height="100%"
                 style={{
                   border: 0,
-                  filter: "invert(90%) hue-rotate(180deg) brightness(85%) contrast(92%)",
                 }}
                 allowFullScreen={false}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                className="w-full h-full opacity-90 group-hover:opacity-100 transition-opacity"
+                className="w-full h-full opacity-90 group-hover:opacity-100 transition-opacity dark:[filter:invert(90%)_hue-rotate(180deg)_brightness(85%)_contrast(92%)_saturate(70%)] [filter:brightness(96%)_contrast(95%)_saturate(85%)]"
+              />
+              <div 
+                aria-hidden="true" 
+                className="pointer-events-none absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] dark:shadow-[inset_0_0_24px_rgba(0,0,0,0.5)]" 
               />
               <div className="absolute bottom-3 end-3 z-20">
                 <a
                   href="https://maps.app.goo.gl/7mh3nYbk4BSytV167?g_st=ic"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border text-foreground text-xs font-medium hover:border-accent hover:text-accent transition-all shadow-lg"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-background/90 dark:bg-black/85 backdrop-blur-md border border-border text-foreground text-xs font-medium hover:border-accent hover:text-accent transition-all shadow-lg"
                 >
                   <MapPin size={12} className="text-accent" />
                   <span>Google Maps</span>
@@ -171,7 +174,7 @@ export default function ContactClient() {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="bg-card text-card-foreground p-8 md:p-12 rounded-3xl border border-border shadow-2xl"
+            className="bg-card text-card-foreground p-6 sm:p-8 md:p-12 rounded-3xl border border-border shadow-2xl"
           >
             {formState === "success" ? (
               <div className="flex flex-col items-center justify-center py-16">

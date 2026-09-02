@@ -92,34 +92,34 @@ export default function PropertiesClient() {
   });
 
   return (
-    <div className="bg-background min-h-screen text-foreground pt-32 pb-24 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+    <div className="bg-background min-h-screen text-foreground pt-28 sm:pt-32 pb-16 sm:pb-24 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="mb-16"
+          className="mb-10 sm:mb-16"
         >
-          <h1 className="text-5xl md:text-7xl font-light tracking-tighter mb-6 text-foreground">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-light tracking-tighter mb-4 sm:mb-6 text-foreground">
             {t.propertiesPage.title.split(" ")[0]}{" "}
             <span className="font-bold text-accent">
               {t.propertiesPage.title.split(" ").slice(1).join(" ")}
             </span>
           </h1>
-          <p className="text-xl text-foreground/60 max-w-2xl font-light">
+          <p className="text-base sm:text-xl text-foreground/60 max-w-2xl font-light">
             {t.propertiesPage.subtitle}
           </p>
         </motion.div>
 
         {/* Filters & Search */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 border-b border-border pb-6">
+        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 sm:gap-6 mb-8 sm:mb-12 border-b border-border pb-6">
           <div className="flex flex-wrap gap-2">
             {filterOptions.map((filter) => (
               <button
                 key={filter.key}
                 onClick={() => setActiveFilter(filter.key)}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
+                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${
                   activeFilter === filter.key
                     ? "bg-foreground text-background shadow-md"
                     : "bg-card text-foreground/70 hover:bg-foreground/10 hover:text-foreground border border-border"
@@ -138,24 +138,24 @@ export default function PropertiesClient() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t.propertiesPage.searchPlaceholder}
-                className="w-full bg-card border border-border rounded-full ps-12 pe-4 py-3 text-sm text-foreground focus:outline-none focus:border-accent shadow-sm transition-colors"
+                className="w-full bg-card border border-border rounded-full ps-12 pe-4 py-2.5 sm:py-3 text-sm text-foreground focus:outline-none focus:border-accent shadow-sm transition-colors"
               />
             </div>
-            <button className="p-3 bg-card rounded-full border border-border text-foreground hover:bg-foreground/10 transition-colors shadow-sm">
-              <Filter size={20} />
+            <button className="p-2.5 sm:p-3 bg-card rounded-full border border-border text-foreground hover:bg-foreground/10 transition-colors shadow-sm shrink-0">
+              <Filter size={18} />
             </button>
           </div>
         </div>
 
         {/* Property Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="w-full h-[450px] rounded-3xl bg-card border border-border animate-pulse" />
+              <div key={i} className="w-full h-[400px] sm:h-[450px] rounded-3xl bg-card border border-border animate-pulse" />
             ))}
           </div>
         ) : filteredProperties.length > 0 ? (
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <AnimatePresence mode="popLayout">
               {filteredProperties.map((property) => (
                 <motion.div

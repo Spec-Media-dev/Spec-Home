@@ -5,6 +5,7 @@ import SelectedOpportunities from "@/components/SelectedOpportunities";
 import AreaGuides from "@/components/AreaGuides";
 import Services from "@/components/Services";
 import FeaturedInsights from "@/components/FeaturedInsights";
+import OfficeLocationSection from "@/components/OfficeLocationSection";
 import InteractiveForm from "@/components/InteractiveForm";
 import { getGlobalSeo, getPageSeo } from "@/lib/queries/seo";
 import { getSiteSettings } from "@/lib/queries/site-settings";
@@ -90,6 +91,7 @@ export default async function Home({ params }: Props) {
       <AreaGuides />
       <Services />
       <FeaturedInsights />
+      <OfficeLocationSection />
       <InteractiveForm />
     </div>
   );

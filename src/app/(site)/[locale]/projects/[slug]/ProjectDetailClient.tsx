@@ -149,7 +149,7 @@ export default function ProjectDetailClient({ locale, project, properties }: Pro
   return (
     <div className="bg-background min-h-screen text-foreground pb-24 transition-colors duration-300">
       {/* Hero Image Section */}
-      <div className="relative h-[78vh] min-h-[580px] w-full overflow-hidden bg-black">
+      <div className="relative h-[65vh] sm:h-[75vh] min-h-[460px] sm:min-h-[580px] w-full overflow-hidden bg-black">
         <motion.div style={{ y: y1 }} className="absolute inset-0 w-full h-full">
           <AnimatePresence mode="wait">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -170,48 +170,48 @@ export default function ProjectDetailClient({ locale, project, properties }: Pro
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/30 z-10 pointer-events-none" />
 
         {/* Top Controls: Back Button & Image Counter */}
-        <div className="absolute top-24 start-6 md:top-28 md:start-12 z-20">
+        <div className="absolute top-20 start-4 sm:top-28 sm:start-12 z-20">
           <Link
             href={`/${locale}/projects`}
-            className="inline-flex items-center gap-2 text-white hover:text-accent transition-all bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-sm border border-white/20 hover:border-accent/60 shadow-xl"
+            className="inline-flex items-center gap-2 text-white hover:text-accent transition-all bg-black/60 backdrop-blur-md px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm border border-white/20 hover:border-accent/60 shadow-xl"
           >
-            {isRTL ? <ArrowRight size={16} /> : <ArrowLeft size={16} />} {t.detailPage.backToListings}
+            {isRTL ? <ArrowRight size={14} /> : <ArrowLeft size={14} />} {t.detailPage.backToListings}
           </Link>
         </div>
 
         {projectImages.length > 1 && (
-          <div className="absolute top-24 end-6 md:top-28 md:end-12 z-20 flex items-center gap-2">
-            <div className="px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-mono flex items-center gap-2 shadow-lg">
-              <ImageIcon size={14} className="text-accent" />
+          <div className="absolute top-20 end-4 sm:top-28 sm:end-12 z-20 flex items-center gap-2">
+            <div className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-[11px] sm:text-xs font-mono flex items-center gap-1.5 sm:gap-2 shadow-lg">
+              <ImageIcon size={13} className="text-accent" />
               <span>{activeImageIndex + 1} / {projectImages.length}</span>
             </div>
             <button
               onClick={() => openLightbox(activeImageIndex)}
-              className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white hover:text-accent transition-colors shadow-lg"
+              className="p-1.5 sm:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white hover:text-accent transition-colors shadow-lg"
               title="Fullscreen Gallery"
               aria-label="Fullscreen Gallery"
             >
-              <Maximize2 size={16} />
+              <Maximize2 size={15} />
             </button>
           </div>
         )}
 
         {/* Hero Carousel Navigation Arrows */}
         {projectImages.length > 1 && (
-          <div className="absolute top-1/2 -translate-y-1/2 w-full px-4 md:px-8 flex justify-between z-20 pointer-events-none">
+          <div className="absolute top-1/2 -translate-y-1/2 w-full px-2 sm:px-4 md:px-8 flex justify-between z-20 pointer-events-none">
             <button
               onClick={handlePrevImage}
-              className="pointer-events-auto p-3 rounded-full bg-black/50 text-white hover:bg-accent hover:text-black transition-all backdrop-blur-md border border-white/20 shadow-2xl hover:scale-110 active:scale-95"
+              className="pointer-events-auto p-2.5 sm:p-3 rounded-full bg-black/50 text-white hover:bg-accent hover:text-black transition-all backdrop-blur-md border border-white/20 shadow-2xl hover:scale-110 active:scale-95"
               aria-label="Previous view"
             >
-              {isRTL ? <ChevronRight size={22} /> : <ChevronLeft size={22} />}
+              {isRTL ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
             </button>
             <button
               onClick={handleNextImage}
-              className="pointer-events-auto p-3 rounded-full bg-black/50 text-white hover:bg-accent hover:text-black transition-all backdrop-blur-md border border-white/20 shadow-2xl hover:scale-110 active:scale-95"
+              className="pointer-events-auto p-2.5 sm:p-3 rounded-full bg-black/50 text-white hover:bg-accent hover:text-black transition-all backdrop-blur-md border border-white/20 shadow-2xl hover:scale-110 active:scale-95"
               aria-label="Next view"
             >
-              {isRTL ? <ChevronLeft size={22} /> : <ChevronRight size={22} />}
+              {isRTL ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
             </button>
           </div>
         )}
@@ -219,30 +219,30 @@ export default function ProjectDetailClient({ locale, project, properties }: Pro
         {/* Hero Content Overlay */}
         <motion.div
           style={{ opacity }}
-          className="absolute bottom-0 start-0 w-full p-8 md:p-16 lg:px-24 flex flex-col justify-end z-20"
+          className="absolute bottom-0 start-0 w-full p-4 sm:p-8 md:p-16 lg:px-24 flex flex-col justify-end z-20"
         >
           <div className="max-w-4xl">
-            <div className="flex items-center gap-2 text-white/90 mb-3">
-              <MapPin size={18} className="text-accent" />
-              <span className="text-sm uppercase tracking-widest font-semibold">
+            <div className="flex items-center gap-2 text-white/90 mb-2 sm:mb-3">
+              <MapPin size={16} className="text-accent" />
+              <span className="text-xs sm:text-sm uppercase tracking-widest font-semibold">
                 {location}
               </span>
               <span className="text-white/40">•</span>
-              <span className="text-sm uppercase tracking-widest text-accent font-semibold">
+              <span className="text-xs sm:text-sm uppercase tracking-widest text-accent font-semibold">
                 {developer}
               </span>
             </div>
 
-            <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white mb-6 tracking-tighter drop-shadow-md">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold text-white mb-4 sm:mb-6 tracking-tighter drop-shadow-md">
               {title}
             </h1>
 
-            <div className="flex flex-wrap gap-8 items-center border-t border-white/20 pt-6 mt-4">
+            <div className="flex flex-wrap gap-4 sm:gap-8 items-center border-t border-white/20 pt-4 sm:pt-6 mt-2 sm:mt-4">
               <div>
-                <p className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
+                <p className="text-[10px] sm:text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
                   {t.detailPage.startingPrice}
                 </p>
-                <p className="text-2xl md:text-3xl font-bold text-accent font-mono">
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-accent font-mono">
                   {formatPrice(project.starting_price, project.currency || "AED")}
                 </p>
               </div>
@@ -250,10 +250,10 @@ export default function ProjectDetailClient({ locale, project, properties }: Pro
               <div className="hidden md:block w-px h-12 bg-white/20" />
 
               <div>
-                <p className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
+                <p className="text-[10px] sm:text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
                   {t.detailPage.handover}
                 </p>
-                <p className="text-2xl md:text-3xl font-light text-white font-mono">
+                <p className="text-xl sm:text-2xl md:text-3xl font-light text-white font-mono">
                   {handover}
                 </p>
               </div>
@@ -261,10 +261,10 @@ export default function ProjectDetailClient({ locale, project, properties }: Pro
               <div className="hidden md:block w-px h-12 bg-white/20" />
 
               <div>
-                <p className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
+                <p className="text-[10px] sm:text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
                   {t.detailPage.paymentPlan}
                 </p>
-                <p className="text-2xl md:text-3xl font-light text-white font-mono">
+                <p className="text-xl sm:text-2xl md:text-3xl font-light text-white font-mono">
                   {paymentPlan}
                 </p>
               </div>
@@ -273,10 +273,10 @@ export default function ProjectDetailClient({ locale, project, properties }: Pro
                 <>
                   <div className="hidden md:block w-px h-12 bg-white/20" />
                   <div>
-                    <p className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
+                    <p className="text-[10px] sm:text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
                       {locale === "ar" ? "إجمالي الوحدات" : "Total Units"}
                     </p>
-                    <p className="text-2xl md:text-3xl font-light text-white font-mono">
+                    <p className="text-xl sm:text-2xl md:text-3xl font-light text-white font-mono">
                       {project.total_units} {locale === "ar" ? "وحدة" : "Units"}
                     </p>
                   </div>
@@ -316,10 +316,10 @@ export default function ProjectDetailClient({ locale, project, properties }: Pro
       )}
 
       {/* Main Body Section */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 mt-12 lg:mt-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 mt-8 sm:mt-12 lg:mt-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-16">
+          <div className="lg:col-span-2 space-y-10 sm:space-y-16">
             <section>
               <h2 className="text-2xl font-bold mb-6 text-foreground">{t.detailPage.overview}</h2>
               <p className="text-foreground/70 text-lg font-light leading-relaxed whitespace-pre-line">

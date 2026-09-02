@@ -94,7 +94,7 @@ export default function PropertyDetailClient({ locale, property }: Props) {
   return (
     <div className="bg-background min-h-screen text-foreground pb-24 transition-colors duration-300">
       {/* Hero Image Section */}
-      <div className="relative h-[75vh] min-h-[550px] w-full overflow-hidden">
+      <div className="relative h-[60vh] sm:h-[70vh] lg:h-[75vh] min-h-[440px] sm:min-h-[520px] w-full overflow-hidden">
         <motion.div style={{ y: y1 }} className="absolute inset-0 w-full h-full">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -108,20 +108,20 @@ export default function PropertyDetailClient({ locale, property }: Props) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/30 z-10" />
 
         {/* Back Button */}
-        <div className="absolute top-24 start-6 md:top-28 md:start-12 z-20 flex items-center gap-3">
+        <div className="absolute top-20 start-4 sm:top-28 sm:start-12 z-20 flex flex-wrap items-center gap-2 sm:gap-3">
           <Link
             href={`/${locale}/properties`}
-            className="inline-flex items-center gap-2 text-white hover:text-accent transition-all bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-sm border border-white/20 hover:border-accent/60 shadow-xl"
+            className="inline-flex items-center gap-2 text-white hover:text-accent transition-all bg-black/60 backdrop-blur-md px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm border border-white/20 hover:border-accent/60 shadow-xl"
           >
-            {isRTL ? <ArrowRight size={16} /> : <ArrowLeft size={16} />} {t.detailPage.backToListings}
+            {isRTL ? <ArrowRight size={14} /> : <ArrowLeft size={14} />} {t.detailPage.backToListings}
           </Link>
 
           {property.project && (
             <Link
               href={`/${locale}/projects/${property.project.slug}`}
-              className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-all bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm border border-white/10"
+              className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-all bg-black/40 backdrop-blur-md px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm border border-white/10"
             >
-              <span>{locale === "ar" ? "المشروع الرئيسي:" : "Master Project:"} {projectTitle}</span>
+              <span>{locale === "ar" ? "المشروع:" : "Project:"} {projectTitle}</span>
             </Link>
           )}
         </div>
@@ -129,30 +129,30 @@ export default function PropertyDetailClient({ locale, property }: Props) {
         {/* Hero Content Overlay */}
         <motion.div
           style={{ opacity }}
-          className="absolute bottom-0 start-0 w-full p-8 md:p-16 lg:px-24 flex flex-col justify-end z-20"
+          className="absolute bottom-0 start-0 w-full p-4 sm:p-8 md:p-16 lg:px-24 flex flex-col justify-end z-20"
         >
           <div className="max-w-4xl">
-            <div className="flex items-center gap-2 text-white/90 mb-3">
-              <MapPin size={18} className="text-accent" />
-              <span className="text-sm uppercase tracking-widest font-semibold">
+            <div className="flex items-center gap-2 text-white/90 mb-2 sm:mb-3">
+              <MapPin size={16} className="text-accent" />
+              <span className="text-xs sm:text-sm uppercase tracking-widest font-semibold">
                 {location}
               </span>
               <span className="text-white/40">•</span>
-              <span className="text-sm font-mono text-accent">
+              <span className="text-xs sm:text-sm font-mono text-accent">
                 {property.reference_code}
               </span>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 tracking-tighter drop-shadow-md">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold text-white mb-4 sm:mb-6 tracking-tighter drop-shadow-md">
               {title}
             </h1>
 
-            <div className="flex flex-wrap gap-8 items-center border-t border-white/20 pt-6 mt-4">
+            <div className="flex flex-wrap gap-4 sm:gap-8 items-center border-t border-white/20 pt-4 sm:pt-6 mt-2 sm:mt-4">
               <div>
-                <p className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
+                <p className="text-[10px] sm:text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
                   {t.detailPage.startingPrice}
                 </p>
-                <p className="text-2xl md:text-3xl font-bold text-accent font-mono">
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-accent font-mono">
                   {formatPrice(Number(property.price), property.currency || "AED")}
                 </p>
               </div>
@@ -160,10 +160,10 @@ export default function PropertyDetailClient({ locale, property }: Props) {
               <div className="hidden md:block w-px h-12 bg-white/20" />
 
               <div>
-                <p className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
+                <p className="text-[10px] sm:text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
                   {t.detailPage.handover}
                 </p>
-                <p className="text-2xl md:text-3xl font-light text-white font-mono">
+                <p className="text-xl sm:text-2xl md:text-3xl font-light text-white font-mono">
                   {handover}
                 </p>
               </div>
@@ -171,10 +171,10 @@ export default function PropertyDetailClient({ locale, property }: Props) {
               <div className="hidden md:block w-px h-12 bg-white/20" />
 
               <div>
-                <p className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
+                <p className="text-[10px] sm:text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">
                   {t.detailPage.paymentPlan}
                 </p>
-                <p className="text-2xl md:text-3xl font-light text-white font-mono">
+                <p className="text-xl sm:text-2xl md:text-3xl font-light text-white font-mono">
                   {paymentPlan}
                 </p>
               </div>
@@ -185,7 +185,7 @@ export default function PropertyDetailClient({ locale, property }: Props) {
 
       {/* Gallery Thumbnails */}
       {images.length > 1 && (
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 mt-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 mt-6">
           <div className="flex items-center gap-3 overflow-x-auto pb-2">
             {images.map((img, idx) => {
               const thumbUrl = getStorageUrl(img.image_url, "property-images");
@@ -193,7 +193,7 @@ export default function PropertyDetailClient({ locale, property }: Props) {
                 <button
                   key={img.id}
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`relative h-20 w-32 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                  className={`relative h-16 w-24 sm:h-20 sm:w-32 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
                     activeImageIndex === idx ? "border-accent scale-105 shadow-lg" : "border-border/60 opacity-60 hover:opacity-100"
                   }`}
                 >
@@ -207,12 +207,12 @@ export default function PropertyDetailClient({ locale, property }: Props) {
       )}
 
       {/* Main Body Section */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 mt-12 lg:mt-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 mt-8 sm:mt-12 lg:mt-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-16">
+          <div className="lg:col-span-2 space-y-10 sm:space-y-16">
             {/* Quick Specs Bar */}
-            <div className="grid grid-cols-3 gap-4 p-6 bg-card rounded-2xl border border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 sm:p-6 bg-card rounded-2xl border border-border">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                   <Bed size={20} />

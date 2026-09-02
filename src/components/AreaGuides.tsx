@@ -86,7 +86,7 @@ export default function AreaGuides() {
   const currentArea = activeArea || areas[0] || fallbackAreas[0];
 
   return (
-    <section id="intel" className="py-32 w-full relative min-h-[800px] flex items-center overflow-hidden">
+    <section id="intel" className="py-20 md:py-32 w-full relative min-h-[600px] md:min-h-[750px] flex items-center overflow-hidden transition-colors duration-300">
       {/* Background Image Reveal */}
       <AnimatePresence mode="wait">
         {currentArea && (
@@ -111,42 +111,46 @@ export default function AreaGuides() {
       {/* Gradient Overlay for Text Readability */}
       <div className="absolute inset-0 bg-background/90 md:bg-background/80 z-10" />
 
-      <div className="container mx-auto px-6 max-w-7xl relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+      <div className="container mx-auto px-4 sm:px-6 max-w-7xl relative z-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
           <div>
-            <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-6 text-foreground">
+            <h2 className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-tighter mb-4 sm:mb-6 text-foreground">
               {t.areaGuides.title.split(".")[0]} <span className="text-accent">.</span>
             </h2>
-            <p className="text-foreground/60 text-lg max-w-md mb-8">
+            <p className="text-foreground/60 text-base sm:text-lg max-w-md mb-6 sm:mb-8 font-light">
               {t.areaGuides.subtitle}
             </p>
             <Link
               href={`/${locale}/projects`}
-              className="inline-flex items-center gap-2 text-accent font-medium hover:text-accent/80 transition-colors uppercase tracking-widest text-sm"
+              className="inline-flex items-center gap-2 text-accent font-medium hover:text-accent/80 transition-colors uppercase tracking-widest text-xs sm:text-sm"
             >
               {t.areaGuides.exploreAll} {isRTL ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
             </Link>
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 sm:gap-6">
             {areas.map((area) => (
               <Link
                 key={area.id}
                 href={area.slug ? `/${locale}/projects/${area.slug}` : `/${locale}/projects`}
                 onMouseEnter={() => setActiveArea(area)}
-                className="group cursor-pointer border-b border-border pb-6 flex items-center justify-between transition-colors"
+                className="group cursor-pointer border-b border-border pb-4 sm:pb-6 flex items-center justify-between transition-colors"
               >
                 <h3
-                  className={`text-3xl md:text-5xl font-light tracking-tighter transition-all duration-300 ${
+                  className={`text-2xl sm:text-3xl md:text-5xl font-light tracking-tighter transition-all duration-300 ${
                     currentArea?.id === area.id
-                      ? "text-accent translate-x-4"
+                      ? isRTL
+                        ? "text-accent -translate-x-3 sm:-translate-x-4"
+                        : "text-accent translate-x-3 sm:translate-x-4"
+                      : isRTL
+                      ? "text-foreground/40 group-hover:text-foreground group-hover:-translate-x-2"
                       : "text-foreground/40 group-hover:text-foreground group-hover:translate-x-2"
                   }`}
                 >
                   {area.name}
                 </h3>
                 <span
-                  className={`text-sm tracking-widest uppercase transition-colors duration-300 ${
+                  className={`text-xs sm:text-sm tracking-widest uppercase transition-colors duration-300 ${
                     currentArea?.id === area.id ? "text-foreground" : "text-foreground/30"
                   }`}
                 >

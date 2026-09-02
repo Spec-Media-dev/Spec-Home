@@ -31,13 +31,13 @@ export default function AboutClient() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <span className="inline-block px-4 py-1.5 rounded-full border border-border bg-card/60 backdrop-blur-md text-xs font-mono text-accent uppercase tracking-widest mb-6">
+            <span className="inline-block px-4 py-1.5 rounded-full border border-border bg-card/60 backdrop-blur-md text-xs font-mono text-accent uppercase tracking-widest mb-4 sm:mb-6">
               SPEC Home Dubai
             </span>
-            <h1 className="text-4xl sm:text-6xl md:text-7xl font-light tracking-tighter mb-8 text-foreground leading-[1.1]">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-light tracking-tighter mb-6 sm:mb-8 text-foreground leading-[1.1]">
               {t.aboutPage.heroTitle}
             </h1>
-            <p className="text-lg md:text-xl text-foreground/80 max-w-2xl mx-auto font-light leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-foreground/80 max-w-2xl mx-auto font-light leading-relaxed">
               {t.aboutPage.heroSubtitle}
             </p>
           </motion.div>
@@ -45,8 +45,8 @@ export default function AboutClient() {
       </section>
 
       {/* Philosophy & Approach Section */}
-      <section className="py-24 px-6 lg:px-12 max-w-7xl mx-auto border-t border-border/40">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-12 max-w-7xl mx-auto border-t border-border/40">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           <motion.div
             initial={{ opacity: 0, x: isRTL ? 40 : -40 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -54,7 +54,7 @@ export default function AboutClient() {
             transition={{ duration: 0.8 }}
             className="lg:col-span-7 space-y-6"
           >
-            <h2 className="text-3xl md:text-5xl font-light tracking-tight text-foreground">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-light tracking-tight text-foreground">
               {t.aboutPage.philosophyTitle}
             </h2>
 
@@ -62,8 +62,8 @@ export default function AboutClient() {
               {t.aboutPage.text1}
             </p>
 
-            <div className="p-6 rounded-2xl bg-card border-s-4 border-accent border border-border/60 shadow-sm">
-              <p className="text-foreground font-medium text-lg leading-relaxed italic">
+            <div className="p-5 sm:p-6 rounded-2xl bg-card border-s-4 border-accent border border-border/60 shadow-sm">
+              <p className="text-foreground font-medium text-base sm:text-lg leading-relaxed italic">
                 &ldquo;{t.aboutPage.text2}&rdquo;
               </p>
             </div>
@@ -91,9 +91,9 @@ export default function AboutClient() {
                 alt="Dubai Architectural Vision" 
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6 sm:p-8">
                 <span className="text-accent text-xs font-mono uppercase tracking-widest mb-1">Our Commitment</span>
-                <p className="text-white text-base font-light">Knowledge, access, and guidance to decide with confidence.</p>
+                <p className="text-white text-sm sm:text-base font-light">Knowledge, access, and guidance to decide with confidence.</p>
               </div>
             </div>
           </motion.div>
@@ -101,24 +101,24 @@ export default function AboutClient() {
       </section>
 
       {/* What We Do Section */}
-      <section className="py-24 bg-card/50 text-card-foreground px-6 lg:px-12 border-t border-border">
+      <section className="py-16 sm:py-24 bg-card/50 text-card-foreground px-4 sm:px-6 lg:px-12 border-t border-border">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-5xl font-light tracking-tight text-foreground mb-6">
+          <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-light tracking-tight text-foreground mb-4 sm:mb-6">
               {t.aboutPage.whatWeDoTitle}
             </h2>
-            <p className="text-foreground/70 text-lg font-light leading-relaxed">
+            <p className="text-foreground/70 text-base sm:text-lg font-light leading-relaxed">
               {t.aboutPage.whatWeDoSubtitle}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="p-8 md:p-10 rounded-3xl bg-background border border-border shadow-sm flex flex-col justify-between"
+              className="p-6 sm:p-8 md:p-10 rounded-3xl bg-background border border-border shadow-sm flex flex-col justify-between"
             >
               <div>
                 <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6">
@@ -210,7 +210,7 @@ export default function AboutClient() {
               </a>
             </div>
 
-            <div className="relative w-full h-48 sm:h-56 bg-neutral-900 overflow-hidden">
+            <div className="relative w-full h-48 sm:h-60 bg-neutral-950 overflow-hidden">
               <iframe
                 title="SPEC Home Office Location"
                 src="https://maps.google.com/maps?q=25.096834,55.176888&hl=en&z=15&output=embed"
@@ -218,12 +218,15 @@ export default function AboutClient() {
                 height="100%"
                 style={{
                   border: 0,
-                  filter: "invert(90%) hue-rotate(180deg) brightness(85%) contrast(92%)",
                 }}
                 allowFullScreen={false}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                className="w-full h-full opacity-90 group-hover:opacity-100 transition-opacity"
+                className="w-full h-full opacity-90 group-hover:opacity-100 transition-opacity dark:[filter:invert(90%)_hue-rotate(180deg)_brightness(85%)_contrast(92%)_saturate(70%)] [filter:brightness(96%)_contrast(95%)_saturate(85%)]"
+              />
+              <div 
+                aria-hidden="true" 
+                className="pointer-events-none absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.3)] dark:shadow-[inset_0_0_24px_rgba(0,0,0,0.5)]" 
               />
             </div>
           </motion.div>
