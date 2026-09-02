@@ -157,14 +157,14 @@ export default function Footer() {
                 </a>
               </li>
             )}
-            {/* {contactEmail && (
+            {contactEmail && (
               <li className="flex items-center gap-2">
                 <Mail size={14} className="text-accent shrink-0" />
                 <a href={`mailto:${contactEmail}`} className="hover:text-foreground transition-colors">
                   {contactEmail}
                 </a>
               </li>
-            )} */}
+            )}
           </ul>
         </div>
       </div>
