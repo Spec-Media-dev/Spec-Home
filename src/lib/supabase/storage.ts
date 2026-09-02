@@ -21,13 +21,26 @@ export function getStorageUrl(
     return fallbackUrl;
   }
 
+  // If path contains multiple comma-separated or JSON array, use the first one as primary
+  let singlePath = path.trim();
+  if (singlePath.startsWith("[") && singlePath.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(singlePath);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        singlePath = String(parsed[0]).trim();
+      }
+    } catch {}
+  } else if (singlePath.includes(",")) {
+    singlePath = singlePath.split(",")[0].trim();
+  }
+
   // Already a full URL (Unsplash, external CDN, etc.)
-  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
-    return path;
+  if (singlePath.startsWith("http://") || singlePath.startsWith("https://") || singlePath.startsWith("data:")) {
+    return singlePath;
   }
 
   // Clean path (remove leading slash if any)
-  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  const cleanPath = singlePath.startsWith("/") ? singlePath.slice(1) : singlePath;
 
   // Use 'media' as default bucket if custom bucket name is not configured
   const activeBucket = bucket === "project-covers" || bucket === "property-images" || bucket === "site-assets"
@@ -36,4 +49,34 @@ export function getStorageUrl(
 
   // Build Supabase Storage public URL
   return `${SUPABASE_URL}/storage/v1/object/public/${activeBucket}/${cleanPath}`;
+}
+
+/**
+ * Get an array of public URLs for multi-image fields (comma-separated, JSON array, or single string).
+ */
+export function getStorageUrls(
+  path: string | null | undefined,
+  bucket: string = "media"
+): string[] {
+  if (!path || path.trim() === "") return [];
+
+  const raw = path.trim();
+  let items: string[] = [];
+
+  if (raw.startsWith("[") && raw.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        items = parsed.map((item) => String(item).trim()).filter(Boolean);
+      }
+    } catch {
+      items = [raw];
+    }
+  } else if (raw.includes(",")) {
+    items = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  } else {
+    items = [raw];
+  }
+
+  return items.map((p) => getStorageUrl(p, bucket)).filter(Boolean);
 }

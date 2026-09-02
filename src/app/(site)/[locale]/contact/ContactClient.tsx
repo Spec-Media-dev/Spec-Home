@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Phone, Mail, Loader2, Check, MessageCircle } from "lucide-react";
+import { MapPin, Phone, Mail, Loader2, Check, MessageCircle, ExternalLink } from "lucide-react";
 import { submitEnquiry } from "@/app/actions/enquiries";
 import { useI18n } from "@/lib/i18n";
 import { useSiteSettings } from "@/lib/context/SiteSettingsContext";
@@ -80,7 +80,14 @@ export default function ContactClient() {
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground mb-1">{t.contactPage.headOffice}</h3>
-                    <p className="text-foreground/60 text-sm leading-relaxed whitespace-pre-line">{officeAddress || t.contactPage.address}</p>
+                    <a
+                      href="https://maps.app.goo.gl/7mh3nYbk4BSytV167?g_st=ic"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground/60 hover:text-accent text-sm leading-relaxed whitespace-pre-line block transition-colors"
+                    >
+                      {officeAddress || t.contactPage.address}
+                    </a>
                   </div>
                 </div>
                 {contactPhone && (
@@ -130,8 +137,33 @@ export default function ContactClient() {
               </div>
             </div>
 
-            <div className="h-64 bg-card rounded-3xl border border-border overflow-hidden relative flex items-center justify-center shadow-md">
-              <span className="text-foreground/40 font-medium tracking-widest uppercase">{t.contactPage.headOffice}</span>
+            <div className="h-64 bg-card rounded-3xl border border-border overflow-hidden relative shadow-md group">
+              <iframe
+                title="SPEC Home Office Location"
+                src="https://maps.google.com/maps?q=25.096834,55.176888&hl=en&z=15&output=embed"
+                width="100%"
+                height="100%"
+                style={{
+                  border: 0,
+                  filter: "invert(90%) hue-rotate(180deg) brightness(85%) contrast(92%)",
+                }}
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="w-full h-full opacity-90 group-hover:opacity-100 transition-opacity"
+              />
+              <div className="absolute bottom-3 end-3 z-20">
+                <a
+                  href="https://maps.app.goo.gl/7mh3nYbk4BSytV167?g_st=ic"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border text-foreground text-xs font-medium hover:border-accent hover:text-accent transition-all shadow-lg"
+                >
+                  <MapPin size={12} className="text-accent" />
+                  <span>Google Maps</span>
+                  <ExternalLink size={12} />
+                </a>
+              </div>
             </div>
           </motion.div>
 

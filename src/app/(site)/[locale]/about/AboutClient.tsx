@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Building2, Compass, ArrowRight, ArrowLeft } from "lucide-react";
+import { Building2, Compass, ArrowRight, ArrowLeft, MapPin, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 
@@ -173,6 +173,59 @@ export default function AboutClient() {
             <p className="text-accent font-medium text-xs sm:text-sm uppercase tracking-widest">
               {t.aboutPage.ceoRole}
             </p>
+          </motion.div>
+
+          {/* Office Location Map Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            whileHover={{ y: -3 }}
+            className="mb-16 max-w-2xl mx-auto rounded-3xl bg-card border border-border/80 hover:border-accent/40 overflow-hidden shadow-lg transition-all duration-300 group"
+          >
+            <div className="px-6 py-4 border-b border-border/60 flex items-center justify-between gap-4 bg-background/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0">
+                  <MapPin size={15} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground leading-none">
+                    SPEC Home Dubai
+                  </h4>
+                  <p className="text-foreground/50 text-[11px] font-light mt-0.5">
+                    {t.aboutPage.locationTitle} • Dubai, UAE
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://maps.app.goo.gl/7mh3nYbk4BSytV167?g_st=ic"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-accent text-black font-semibold text-xs hover:bg-[#e5c158] transition-all shadow-sm shrink-0"
+              >
+                <span>{t.aboutPage.openGoogleMaps}</span>
+                <ExternalLink size={11} />
+              </a>
+            </div>
+
+            <div className="relative w-full h-48 sm:h-56 bg-neutral-900 overflow-hidden">
+              <iframe
+                title="SPEC Home Office Location"
+                src="https://maps.google.com/maps?q=25.096834,55.176888&hl=en&z=15&output=embed"
+                width="100%"
+                height="100%"
+                style={{
+                  border: 0,
+                  filter: "invert(90%) hue-rotate(180deg) brightness(85%) contrast(92%)",
+                }}
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="w-full h-full opacity-90 group-hover:opacity-100 transition-opacity"
+              />
+            </div>
           </motion.div>
 
           {/* Closing Highlight Banner */}

@@ -97,6 +97,9 @@ export const en = {
     leadershipTitle: "Leadership",
     ceoName: "Mr. Mohamed Hamdou",
     ceoRole: "Chief Executive Officer",
+    locationTitle: "Our Location",
+    locationSubtitle: "Visit our office in Dubai or get directions via Google Maps.",
+    openGoogleMaps: "Open in Google Maps",
   },
   contactPage: {
     title: "Get in Touch",

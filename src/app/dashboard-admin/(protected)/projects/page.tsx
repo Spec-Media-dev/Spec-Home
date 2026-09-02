@@ -18,6 +18,8 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Star,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useRealtimeDashboard } from "@/lib/supabase/useRealtimeDashboard";
 import { createProject, updateProject, deleteProject, toggleProjectPublished } from "@/app/actions/projects";
@@ -72,8 +74,10 @@ export default function ProjectsPage() {
   const [seoKeywordsAr, setSeoKeywordsAr] = useState("");
   const [canonicalUrl, setCanonicalUrl] = useState("");
 
-  // File upload state
+  // File upload & multi-image state
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [projectImages, setProjectImages] = useState<string[]>([]);
+  const [manualImageUrl, setManualImageUrl] = useState("");
 
   const openAddModal = () => {
     setEditingProject(null);
@@ -93,6 +97,8 @@ export default function ProjectsPage() {
     setPaymentPlanAr("60 / 40");
     setTotalUnits(48);
     setCoverImagePath("https://images.unsplash.com/photo-1546412414-e1885259563a?q=80&w=1200&auto=format&fit=crop");
+    setProjectImages(["https://images.unsplash.com/photo-1546412414-e1885259563a?q=80&w=1200&auto=format&fit=crop"]);
+    setManualImageUrl("");
     setDescriptionEn("");
     setDescriptionAr("");
     setIsPublished(true);
@@ -126,6 +132,23 @@ export default function ProjectsPage() {
     setPaymentPlanAr(proj.payment_plan_ar || "");
     setTotalUnits(proj.total_units || 0);
     setCoverImagePath(proj.cover_image_path || "");
+
+    const rawImgs = proj.cover_image_path || "";
+    let parsedImgs: string[] = [];
+    if (rawImgs.startsWith("[") && rawImgs.endsWith("]")) {
+      try {
+        parsedImgs = JSON.parse(rawImgs);
+      } catch {
+        parsedImgs = [rawImgs];
+      }
+    } else if (rawImgs.includes(",")) {
+      parsedImgs = rawImgs.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (rawImgs) {
+      parsedImgs = [rawImgs];
+    }
+    setProjectImages(parsedImgs);
+    setManualImageUrl("");
+
     setDescriptionEn(proj.description_en || "");
     setDescriptionAr(proj.description_ar || "");
     setIsPublished(proj.is_published);
@@ -141,23 +164,60 @@ export default function ProjectsPage() {
     setIsModalOpen(true);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleMultipleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploadingImage(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      const res = await uploadMediaFile(base64, file.name, "project-covers");
-      if (res.success && res.url) {
-        setCoverImagePath(res.url);
-      } else {
-        alert(res.error || "Failed to upload image.");
+    const addedUrls: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("folder", "projects");
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (data.success && (data.url || data.path)) {
+          addedUrls.push(data.url || data.path);
+        } else {
+          alert(`Failed to upload ${file.name}: ${data.error || "Upload failed"}`);
+        }
+      } catch (err: any) {
+        console.error("Upload error:", file.name, err);
+        alert(`Error uploading ${file.name}: ${err?.message || "Network error"}`);
       }
-      setUploadingImage(false);
-    };
-    reader.readAsDataURL(file);
+    }
+
+    if (addedUrls.length > 0) {
+      setProjectImages((prev) => [...prev, ...addedUrls]);
+    }
+    setUploadingImage(false);
+    e.target.value = "";
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setProjectImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSetPrimaryCover = (indexToSet: number) => {
+    setProjectImages((prev) => {
+      const chosen = prev[indexToSet];
+      const rest = prev.filter((_, idx) => idx !== indexToSet);
+      return [chosen, ...rest];
+    });
+  };
+
+  const handleAddManualImage = () => {
+    if (!manualImageUrl.trim()) return;
+    setProjectImages((prev) => [...prev, manualImageUrl.trim()]);
+    setManualImageUrl("");
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -169,6 +229,8 @@ export default function ProjectsPage() {
 
     setSaving(true);
     try {
+      const finalCoverPath = projectImages.length > 0 ? projectImages.join(",") : (coverImagePath || null);
+
       if (editingProject) {
         const res = await updateProject(editingProject.id, {
           name_en: nameEn,
@@ -186,7 +248,7 @@ export default function ProjectsPage() {
           payment_plan_en: paymentPlanEn,
           payment_plan_ar: paymentPlanAr || paymentPlanEn,
           total_units: Number(totalUnits) || 0,
-          cover_image_path: coverImagePath,
+          cover_image_path: finalCoverPath,
           description_en: descriptionEn,
           description_ar: descriptionAr,
           is_published: isPublished,
@@ -222,7 +284,7 @@ export default function ProjectsPage() {
           payment_plan_en: paymentPlanEn,
           payment_plan_ar: paymentPlanAr || paymentPlanEn,
           total_units: Number(totalUnits) || 0,
-          cover_image_path: coverImagePath,
+          cover_image_path: finalCoverPath,
           description_en: descriptionEn,
           description_ar: descriptionAr,
           is_published: isPublished,
@@ -412,6 +474,13 @@ export default function ProjectsPage() {
                     {proj.is_featured && (
                       <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-accent/20 text-accent border border-accent/30">
                         FEATURED
+                      </span>
+                    )}
+
+                    {proj.cover_image_path?.includes(",") && (
+                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-black/70 text-white border border-white/20 flex items-center gap-1 shadow-sm">
+                        <ImageIcon size={10} className="text-accent" />
+                        {proj.cover_image_path.split(",").length} Images
                       </span>
                     )}
                   </div>
@@ -724,39 +793,113 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              {/* Cover Image Upload / URL */}
-              <div>
-                <label className="block text-neutral-300 font-medium mb-1">Cover Image Asset</label>
-                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                  <div className="flex-1 w-full">
-                    <input
-                      type="text"
-                      value={coverImagePath}
-                      onChange={(e) => setCoverImagePath(e.target.value)}
-                      placeholder="https://... or storage path"
-                      className="w-full bg-[#1c1c1c] border border-[#333333] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-accent font-mono text-xs"
-                    />
+              {/* Project Multi-Image Gallery Manager */}
+              <div className="p-4 bg-[#181818] border border-[#2a2a2a] rounded-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block text-white font-medium text-xs sm:text-sm flex items-center gap-2">
+                      <ImageIcon size={16} className="text-accent" />
+                      <span>Project Visuals & Gallery ({projectImages.length})</span>
+                    </label>
+                    <p className="text-neutral-400 text-[11px] mt-0.5">
+                      Upload multiple images. The first image (#1) is the primary cover used across listings.
+                    </p>
                   </div>
-                  <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#262626] hover:bg-[#333] text-white rounded-lg border border-[#3a3a3a] cursor-pointer transition-colors text-xs shrink-0">
+
+                  <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-accent hover:bg-[#e5c158] text-black font-semibold rounded-lg cursor-pointer transition-colors text-xs shrink-0 shadow-md">
                     <Upload size={14} className={uploadingImage ? "animate-spin" : ""} />
-                    <span>{uploadingImage ? "Uploading..." : "Upload File"}</span>
+                    <span>{uploadingImage ? "Uploading Images..." : "+ Upload Multiple Images"}</span>
                     <input
                       type="file"
+                      multiple
                       accept="image/*"
-                      onChange={handleFileUpload}
+                      onChange={handleMultipleFileUpload}
                       className="hidden"
                       disabled={uploadingImage}
                     />
                   </label>
                 </div>
-                {coverImagePath && (
-                  <div className="mt-2 h-28 w-48 rounded-lg overflow-hidden border border-[#333] bg-black">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={getStorageUrl(coverImagePath, "project-covers")}
-                      alt="Cover preview"
-                      className="w-full h-full object-cover"
-                    />
+
+                {/* Add image by URL or path */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualImageUrl}
+                    onChange={(e) => setManualImageUrl(e.target.value)}
+                    placeholder="Paste image URL or storage path (e.g. projects/...)..."
+                    className="flex-1 bg-[#1c1c1c] border border-[#333333] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent font-mono text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddManualImage();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddManualImage}
+                    className="px-3.5 py-2 bg-[#262626] hover:bg-[#333] text-white rounded-lg text-xs font-medium border border-[#3a3a3a] transition-colors shrink-0"
+                  >
+                    Add URL
+                  </button>
+                </div>
+
+                {/* Gallery Thumbnails List */}
+                {projectImages.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
+                    {projectImages.map((imgPath, idx) => (
+                      <div
+                        key={idx}
+                        className={`group relative aspect-[4/3] rounded-xl overflow-hidden border-2 bg-black transition-all ${
+                          idx === 0 ? "border-accent ring-2 ring-accent/30" : "border-[#333]"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={getStorageUrl(imgPath, "project-covers")}
+                          alt={`Project view ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Badges */}
+                        <div className="absolute top-1.5 start-1.5 flex items-center gap-1 z-10">
+                          {idx === 0 ? (
+                            <span className="px-2 py-0.5 rounded-md bg-accent text-black font-bold text-[10px] flex items-center gap-1 shadow">
+                              <Star size={10} fill="currentColor" /> Cover
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white font-mono text-[10px]">
+                              #{idx + 1}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Action buttons on hover */}
+                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                          {idx !== 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetPrimaryCover(idx)}
+                              className="p-1.5 rounded-lg bg-accent/90 text-black hover:bg-accent text-xs font-semibold shadow transition-colors"
+                              title="Set as primary cover"
+                            >
+                              <Star size={13} fill="currentColor" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="p-1.5 rounded-lg bg-red-500/90 text-white hover:bg-red-600 shadow transition-colors"
+                            title="Remove image"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-lg border border-dashed border-[#333] text-center text-neutral-500 text-xs">
+                    No images added yet. Click &quot;Upload Multiple Images&quot; or paste a URL above.
                   </div>
                 )}
               </div>

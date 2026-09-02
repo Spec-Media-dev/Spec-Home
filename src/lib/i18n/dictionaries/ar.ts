@@ -99,6 +99,9 @@ export const ar: Dictionary = {
     leadershipTitle: "القيادة التنفيذية",
     ceoName: "السيد محمد حمدو",
     ceoRole: "الرئيس التنفيذي",
+    locationTitle: "موقعنا",
+    locationSubtitle: "تفضل بزيارة مكتبنا في دبي أو احصل على الاتجاهات مباشرة عبر خرائط جوجل.",
+    openGoogleMaps: "افتح في خرائط جوجل",
   },
   contactPage: {
     title: "تواصل معنا",
