@@ -66,6 +66,7 @@ export default function Footer() {
                   "h-9 max-w-[160px] object-contain mb-2 transition-all duration-300",
                   mounted &&
                     theme === "light" &&
+                    !logoUrl.toLowerCase().endsWith(".svg") &&
                     (logoUrl.toLowerCase().includes("white") || logoUrl.toLowerCase().includes("branding")) &&
                     "filter invert contrast-125"
                 )}

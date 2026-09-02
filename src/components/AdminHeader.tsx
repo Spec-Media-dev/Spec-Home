@@ -39,9 +39,8 @@ export default function AdminHeader() {
           <FriesIcon size={18} />
         </button>
         <Link href="/dashboard-admin" className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-accent flex items-center justify-center text-black font-bold text-xs">
-            S
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon.svg" alt="SPEC Home" className="w-6 h-6 object-contain" />
           <span className="text-sm font-bold text-white">
             SPEC <span className="text-accent">Home</span>
           </span>

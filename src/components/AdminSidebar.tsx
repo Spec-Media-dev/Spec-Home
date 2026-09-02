@@ -123,8 +123,9 @@ export default function AdminSidebar() {
             className="flex items-center gap-2.5 group"
             onClick={() => setIsOpen(false)}
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-[#735702] flex items-center justify-center text-black font-black text-sm shadow-md">
-              S
+            <div className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center p-1 shadow-md group-hover:border-accent/50 transition-colors">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icon.svg" alt="SPEC Home" className="w-full h-full object-contain" />
             </div>
             <span className="text-base font-bold tracking-tight text-white">
               SPEC <span className="text-accent">Home</span>

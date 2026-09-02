@@ -86,10 +86,6 @@ export default function AdminLoginPage() {
               )}
             </button>
           </div>
-
-          <p className="text-xs text-neutral-600 text-center mt-4">
-            Demo: admin@spechome.com / admin123
-          </p>
         </form>
       </motion.div>
     </div>

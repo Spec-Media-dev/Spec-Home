@@ -80,12 +80,17 @@ export default function Header() {
                   "h-8 max-w-[140px] object-contain transition-all duration-300",
                   mounted &&
                     theme === "light" &&
+                    !logoUrl.toLowerCase().endsWith(".svg") &&
                     (logoUrl.toLowerCase().includes("white") || logoUrl.toLowerCase().includes("branding")) &&
                     "filter invert contrast-125"
                 )}
               />
             ) : (
-              <span>{brandName || t.nav.brand}</span>
+              <div className="flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icon.svg" alt={brandName} className="h-7 w-auto object-contain" />
+                <span>{brandName || t.nav.brand}</span>
+              </div>
             )}
           </Link>
         </motion.div>

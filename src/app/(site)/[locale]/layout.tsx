@@ -48,6 +48,14 @@ export async function generateMetadata({
     description,
     keywords,
     robots: globalSeo.robots || "index, follow",
+    icons: {
+      icon: [
+        { url: "/icon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico", sizes: "any" },
+      ],
+      shortcut: "/icon.svg",
+      apple: "/apple-touch-icon.png",
+    },
     openGraph: {
       title,
       description,
