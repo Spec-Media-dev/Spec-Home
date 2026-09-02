@@ -3,7 +3,15 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPropertyBySlug } from "@/lib/queries/properties";
 import { getStorageUrl } from "@/lib/supabase/storage";
+import { JsonLd, buildPropertySchema } from "@/lib/seo/schema";
 import PropertyDetailClient from "./PropertyDetailClient";
+
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000")
+).replace(/\/+$/, "");
 
 interface Props {
   params: Promise<{ locale: string; slug: string }>;
@@ -29,13 +37,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? getStorageUrl(property.cover_image, "property-images")
     : undefined;
 
+  const canonical = `${SITE_URL}/${locale}/properties/${slug}`;
+
   return {
     title: `${title} | SPEC Home Dubai`,
     description,
     keywords: isAr ? property.seo_keywords_ar || undefined : property.seo_keywords_en || undefined,
+    alternates: {
+      canonical,
+      languages: {
+        en: `${SITE_URL}/en/properties/${slug}`,
+        ar: `${SITE_URL}/ar/properties/${slug}`,
+        "x-default": `${SITE_URL}/en/properties/${slug}`,
+      },
+    },
     openGraph: {
       title,
       description,
+      url: canonical,
       images: ogImage ? [{ url: ogImage }] : undefined,
     },
   };
@@ -52,9 +71,12 @@ export default async function PropertyDetailPage({ params }: Props) {
   }
 
   return (
-    <PropertyDetailClient
-      locale={locale}
-      property={property}
-    />
+    <>
+      <JsonLd data={buildPropertySchema({ property, locale })} />
+      <PropertyDetailClient
+        locale={locale}
+        property={property}
+      />
+    </>
   );
 }

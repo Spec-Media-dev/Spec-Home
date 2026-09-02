@@ -9,13 +9,21 @@ import { getGlobalSeo, getPageSeo } from "@/lib/queries/seo";
 import { getSiteSettings } from "@/lib/queries/site-settings";
 import { getStorageUrl } from "@/lib/supabase/storage";
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000")
+).replace(/\/+$/, "");
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const resolvedParams = await params;
-  const isAr = resolvedParams?.locale === "ar";
+  const locale = resolvedParams?.locale === "ar" ? "ar" : "en";
+  const isAr = locale === "ar";
 
   const [globalSeo, homeSeo, siteSettings] = await Promise.all([
     getGlobalSeo(),
@@ -48,6 +56,14 @@ export async function generateMetadata({
     description,
     keywords,
     robots: globalSeo.robots || "index, follow",
+    alternates: {
+      canonical: `${SITE_URL}/${locale}`,
+      languages: {
+        en: `${SITE_URL}/en`,
+        ar: `${SITE_URL}/ar`,
+        "x-default": `${SITE_URL}/en`,
+      },
+    },
     icons: {
       icon: [
         { url: "/icon.svg", type: "image/svg+xml" },

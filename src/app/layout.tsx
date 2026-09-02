@@ -7,7 +7,15 @@ const inter = Inter({ subsets: ["latin"] });
 
 import { ThemeProvider } from "@/components/ThemeProvider";
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000")
+).replace(/\/+$/, "");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "SPEC Home Dubai | Premium Real Estate",
   description: "Awwwards-caliber visual experience for SPEC Home Dubai.",
   icons: {

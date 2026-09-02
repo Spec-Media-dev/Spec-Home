@@ -52,7 +52,7 @@ export async function liveSearch(query: string, locale: string = "en"): Promise<
     const projects = (projRes.data as ProjectRow[]) || [];
 
     // Get cover images for properties
-    let propertyImagesMap: Record<string, string> = {};
+    const propertyImagesMap: Record<string, string> = {};
     if (properties.length > 0) {
       const propIds = properties.map((p) => p.id);
       const { data: images } = await supabase

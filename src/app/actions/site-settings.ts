@@ -44,7 +44,7 @@ export async function updateSiteSettings(
 
     const key = (existing as { key: string } | null)?.key || "general";
 
-    let payload: Record<string, any> = {
+    const payload: Record<string, any> = {
       key,
       ...settings,
       updated_at: new Date().toISOString(),
