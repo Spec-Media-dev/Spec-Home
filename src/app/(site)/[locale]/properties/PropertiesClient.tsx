@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PropertyCard from "@/components/PropertyCard";
-import { Search, Filter, Building2 } from "lucide-react";
+import { Search, Filter, Building2, Sparkles } from "lucide-react";
+import ListPropertySection from "@/components/ListPropertySection";
 import { getProperties } from "@/lib/queries/properties";
 import { getStorageUrl } from "@/lib/supabase/storage";
 import type { PropertyRow } from "@/lib/supabase/types";
@@ -99,17 +100,26 @@ export default function PropertiesClient() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="mb-10 sm:mb-16"
+          className="mb-10 sm:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6"
         >
-          <h1 className="text-3xl sm:text-5xl md:text-7xl font-light tracking-tighter mb-4 sm:mb-6 text-foreground">
-            {t.propertiesPage.title.split(" ")[0]}{" "}
-            <span className="font-bold text-accent">
-              {t.propertiesPage.title.split(" ").slice(1).join(" ")}
-            </span>
-          </h1>
-          <p className="text-base sm:text-xl text-foreground/60 max-w-2xl font-light">
-            {t.propertiesPage.subtitle}
-          </p>
+          <div>
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-light tracking-tighter mb-4 sm:mb-6 text-foreground">
+              {t.propertiesPage.title.split(" ")[0]}{" "}
+              <span className="font-bold text-accent">
+                {t.propertiesPage.title.split(" ").slice(1).join(" ")}
+              </span>
+            </h1>
+            <p className="text-base sm:text-xl text-foreground/60 max-w-2xl font-light">
+              {t.propertiesPage.subtitle}
+            </p>
+          </div>
+          <a
+            href="#list-with-us"
+            className="inline-flex items-center gap-2 self-start md:self-auto px-5 py-3 rounded-full text-xs sm:text-sm font-semibold bg-accent text-accent-foreground shadow-md shadow-accent/20 hover:shadow-accent/40 hover:opacity-95 transition-all shrink-0"
+          >
+            <Sparkles size={16} />
+            <span>{t.listProperty.quickCta}</span>
+          </a>
         </motion.div>
 
         {/* Filters & Search */}
@@ -184,6 +194,11 @@ export default function PropertiesClient() {
             <p className="text-lg font-medium">{t.propertiesPage.noResults}</p>
           </div>
         )}
+      </div>
+
+      {/* List Your Property With Us - Luxury Form Section */}
+      <div className="mt-16 sm:mt-24 border-t border-border/60 pt-6">
+        <ListPropertySection />
       </div>
     </div>
   );
